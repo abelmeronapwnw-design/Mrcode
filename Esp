@@ -1,0 +1,170 @@
+-- ESP ChiperHub – Táctil, 3ª persona, carga progresiva
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+local CANDY_PINK = Color3.fromRGB(255, 92, 181)
+local XENHUB_INDIGO = Color3.fromRGB(99, 102, 241)
+
+local highlights = {}
+local selectedPlayer = nil
+local SELECTION_RADIUS = 60
+
+local function createHighlight(character)
+    if not character then return end
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.Adornee = character
+    highlight.FillColor = CANDY_PINK
+    highlight.OutlineColor = CANDY_PINK
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Parent = character
+    return highlight
+end
+
+local function clearHighlights()
+    for _, h in pairs(highlights) do
+        if h and h.Parent then h:Destroy() end
+    end
+    for k in pairs(highlights) do
+        highlights[k] = nil
+    end
+end
+
+local function updateColors()
+    for player, highlight in pairs(highlights) do
+        if highlight and highlight.Parent then
+            if player == selectedPlayer then
+                highlight.FillColor = XENHUB_INDIGO
+                highlight.OutlineColor = XENHUB_INDIGO
+            else
+                highlight.FillColor = CANDY_PINK
+                highlight.OutlineColor = CANDY_PINK
+            end
+        end
+    end
+end
+
+local function addHighlight(player)
+    if not player or player == LocalPlayer then return end
+    local character = player.Character
+    if not character then return end
+    if highlights[player] and highlights[player].Parent then return end
+    if highlights[player] then
+        highlights[player]:Destroy()
+        highlights[player] = nil
+    end
+    highlights[player] = createHighlight(character)
+    updateColors()
+end
+
+-- Carga progresiva uno a uno después de 5 segundos
+task.delay(5, function()
+    local plrs = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(plrs, p) end
+    end
+    for i, player in ipairs(plrs) do
+        addHighlight(player)
+        task.wait(0.3)
+    end
+end)
+
+-- Verificación periódica cada 3 segundos
+task.spawn(function()
+    while task.wait(3) do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                if not highlights[player] or not highlights[player].Parent then
+                    addHighlight(player)
+                end
+            end
+        end
+    end
+end)
+
+-- Jugador nuevo
+Players.PlayerAdded:Connect(function(player)
+    if player ~= LocalPlayer then
+        task.wait(1)
+        addHighlight(player)
+    end
+end)
+
+-- Reaparición de personaje
+local function onCharacterAdded(player, character)
+    task.wait(0.5)
+    if player ~= LocalPlayer then
+        addHighlight(player)
+    end
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        player.CharacterAdded:Connect(function(character)
+            onCharacterAdded(player, character)
+        end)
+    end
+end
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        onCharacterAdded(player, character)
+    end)
+end)
+
+-- Eliminar al salir
+Players.PlayerRemoving:Connect(function(player)
+    if highlights[player] then
+        highlights[player]:Destroy()
+        highlights[player] = nil
+    end
+    if selectedPlayer == player then
+        selectedPlayer = nil
+    end
+end)
+
+-- Selección táctil/clic (funciona en 3ª persona, cualquier distancia)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+
+        local mousePos = UserInputService:GetMouseLocation()
+        local bestPlayer = nil
+        local bestDistance = SELECTION_RADIUS + 1
+
+        for player, highlight in pairs(highlights) do
+            if player ~= LocalPlayer then
+                local character = player.Character
+                if character then
+                    local rootPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+                    if rootPart then
+                        local screenPos, onScreen = camera:WorldToScreenPoint(rootPart.Position)
+                        if onScreen then
+                            local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                            if distance < bestDistance then
+                                bestDistance = distance
+                                bestPlayer = player
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if bestPlayer then
+            selectedPlayer = bestPlayer
+            updateColors()
+        end
+    end
+end)
+
+-- Limpieza al salir
+LocalPlayer.CharacterRemoving:Connect(function()
+    clearHighlights()
+    selectedPlayer = nil
+end)
