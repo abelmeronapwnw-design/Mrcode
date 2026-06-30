@@ -3189,7 +3189,7 @@ mkSect(mainPage,"Bat Aimbot")
     -- ===== ESP desde URL externa (solo en Trading Plaza) =====
     if isTradingPlaza then
         local success, result = pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/abelmeronapwnw-design/Pruebas/refs/heads/main/espcandy"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/Esp"))()
         end)
         if not success then
             warn("ChiperHub: No se pudo cargar el ESP externo: " .. tostring(result))
