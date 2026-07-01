@@ -2239,7 +2239,7 @@ local function playCandyIntro(gui,main,miniBtn)
 	Instance.new("UICorner",logo).CornerRadius=UDim.new(0,14)
 	local logoStroke=Instance.new("UIStroke",logo);logoStroke.Color=CANDY_COLORS.ACCENT;logoStroke.Thickness=1.2;logoStroke.Transparency=0.1
 	local mark=Instance.new("TextLabel",logo)
-	mark.Size=UDim2.new(1,0,1,0);mark.BackgroundTransparency=1;mark.Text="S";mark.TextColor3=CANDY_COLORS.ACCENT;mark.Font=Enum.Font.GothamBlack;mark.TextSize=34;mark.TextTransparency=1;mark.ZIndex=202
+	mark.Size=UDim2.new(1,0,1,0);mark.BackgroundTransparency=1;mark.Text="C";mark.TextColor3=CANDY_COLORS.ACCENT;mark.Font=Enum.Font.GothamBlack;mark.TextSize=34;mark.TextTransparency=1;mark.ZIndex=202
 	local title=Instance.new("TextLabel",intro)
 	title.Size=UDim2.new(0,520,0,52);title.Position=UDim2.new(0.5,-260,0.5,-36)
 	title.BackgroundTransparency=1;title.Text=CANDY_BRAND;title.TextColor3=CANDY_COLORS.TEXT
