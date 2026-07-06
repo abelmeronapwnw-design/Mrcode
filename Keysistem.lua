@@ -1,10 +1,14 @@
--- ============================================================
+ -- ============================================================
 --  SISTEMA DE LLAVES CON VERIFICACIÓN REMOTA (Gist)
---  Integración con ChiperHub - No toca el código original
+--  Integración con ChiperHub - Carga el hub tras validar la llave
 -- ============================================================
 
-local GIST_ID = "f0381c03fb329e9d454152b9f3ffc57d"   -- <-- Reemplaza con el ID de tu Gist
-local GITHUB_TOKEN = "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"  -- <-- Reemplaza con tu token
+-- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
+local GIST_ID = ""   -- <-- Reemplaza con el ID de tu Gist (ej: "abc123def456")
+local GITHUB_TOKEN = ""  -- <-- Reemplaza con tu token (ej: "ghp_xxxxxxxxxxxx")
+
+-- URL de tu script principal (la que me diste)
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium?token=GHSAT0AAAAAAEB5364PMIPFZZSRINYV5PLW2SMHD4Q"
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -133,7 +137,7 @@ local function validateKey(input, label, box, btn)
         return
     end
 
-    -- Éxito: ocultar GUI y continuar
+    -- Éxito: ocultar GUI
     local screen = box:FindFirstAncestorOfClass("ScreenGui")
     if screen then
         TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -143,11 +147,15 @@ local function validateKey(input, label, box, btn)
         screen:Destroy()
     end
 
-    -- Ejecutar el hub
-    if _G.startChiperHub then
-        _G.startChiperHub()
-    else
-        warn("ChiperHub: _G.startChiperHub no está definido. Asegúrate de definir esta función con el contenido de tu hub.")
+    -- ============================================================
+    --  🚀 CARGAR EL HUB PRINCIPAL (ChiperPremium)
+    -- ============================================================
+    local successLoad, err = pcall(function()
+        loadstring(game:HttpGet(HUB_URL))()
+    end)
+    if not successLoad then
+        warn("Error al cargar el hub: " .. tostring(err))
+        -- Opcional: mostrar error en la GUI (pero la GUI ya se cerró)
     end
 end
 
@@ -217,7 +225,7 @@ local function createKeyGui()
     box.BackgroundColor3 = KEY_COLORS.CARD
     box.BorderSizePixel = 0
     box.Text = ""
-    box.PlaceholderText = "Escribe la clave numérica..."
+    box.PlaceholderText = "Escribe la clave..."
     box.TextColor3 = KEY_COLORS.TEXT
     box.PlaceholderColor3 = KEY_COLORS.SECONDARY
     box.Font = Enum.Font.GothamBold
@@ -289,7 +297,6 @@ local function createKeyGui()
 end
 
 -- ============================================================
---  FIN DEL SISTEMA DE LLAVES
---  Ahora, debes definir _G.startChiperHub con tu código original
---  y luego llamar a createKeyGui()
+--  INICIAR EL SISTEMA DE LLAVES
 -- ============================================================
+createKeyGui()
