@@ -4,11 +4,13 @@
 -- ============================================================
 
 -- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
-local GIST_ID = ""   -- <-- Reemplaza con el ID de tu Gist (ej: "abc123def456")
-local GITHUB_TOKEN = ""  -- <-- Reemplaza con tu token (ej: "ghp_xxxxxxxxxxxx")
+local GIST_ID = "f0381c03fb329e9d454152b9f3ffc57d"   -- <-- Reemplaza con el ID de tu Gist (ej: "abc123def456")
+local GITHUB_TOKEN = "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"  -- <-- Reemplaza con tu token (ej: "ghp_xxxxxxxxxxxx")
 
--- URL de tu script principal (la que me diste)
-local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium?token=GHSAT0AAAAAAEB5364PMIPFZZSRINYV5PLW2SMHD4Q"
+-- ============================================================
+--  ✅ URL PÚBLICA DE CHIPERPREMIUM (YA SIN TOKEN)
+-- ============================================================
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium"
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -44,7 +46,7 @@ local function showError(box, btn, label, msg)
     end
     TS:Create(box, TweenInfo.new(0.06), {Position = origPos}):Play()
     task.wait(0.1)
-    label.Text = " Ingresa tu llave"
+    label.Text = "🔑 Ingresa tu llave"
     label.TextColor3 = KEY_COLORS.TEXT
 end
 
@@ -148,14 +150,13 @@ local function validateKey(input, label, box, btn)
     end
 
     -- ============================================================
-    --  🚀 CARGAR EL HUB PRINCIPAL (ChiperPremium)
+    --  🚀 CARGAR EL HUB PRINCIPAL (ChiperPremium) con URL pública
     -- ============================================================
     local successLoad, err = pcall(function()
         loadstring(game:HttpGet(HUB_URL))()
     end)
     if not successLoad then
         warn("Error al cargar el hub: " .. tostring(err))
-        -- Opcional: mostrar error en la GUI (pero la GUI ya se cerró)
     end
 end
 
