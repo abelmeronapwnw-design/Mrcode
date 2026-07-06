@@ -18,7 +18,7 @@ end)
 _G.CandyHubRunning = true
 
 local STEAL_BRAINROT_ID = 109983668079237
-local TRADING_PLAZA_ID = 78906538690694
+local TRADING_PLAZA_ID = 119594317142884
 local isStealBrainrot = (game.PlaceId == STEAL_BRAINROT_ID)
 local isTradingPlaza = (game.PlaceId == TRADING_PLAZA_ID)
 
