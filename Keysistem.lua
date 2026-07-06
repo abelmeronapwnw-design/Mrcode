@@ -44,7 +44,7 @@ local function showError(box, btn, label, msg)
     end
     TS:Create(box, TweenInfo.new(0.06), {Position = origPos}):Play()
     task.wait(0.1)
-    label.Text = "🔑 Ingresa tu llave"
+    label.Text = " Ingresa tu llave"
     label.TextColor3 = KEY_COLORS.TEXT
 end
 
