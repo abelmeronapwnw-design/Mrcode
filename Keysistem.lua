@@ -4,12 +4,9 @@
 -- ============================================================
 
 -- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
-local GIST_ID = "f0381c03fb329e9d454152b9f3ffc57d"   -- <-- Reemplaza con el ID de tu Gist (ej: "abc123def456")
-local GITHUB_TOKEN = "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"  -- <-- Reemplaza con tu token (ej: "ghp_xxxxxxxxxxxx")
+local GIST_ID = "f0381c03fb329e9d454152b9f3ffc57d"
+local GITHUB_TOKEN = "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"
 
--- ============================================================
---  ✅ URL PÚBLICA DE CHIPERPREMIUM (YA SIN TOKEN)
--- ============================================================
 local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium"
 
 -- Colores (misma temática que tu hub)
@@ -32,11 +29,12 @@ local LP = Players.LocalPlayer
 local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
--- Función para mostrar error (shake + flash)
+-- Función para mostrar error (shake + flash) - CORREGIDA
 local function showError(box, btn, label, msg)
     label.Text = msg or "❌ Clave incorrecta"
     label.TextColor3 = Color3.fromRGB(255, 70, 70)
-    local origPos = box.Position
+    -- Guardar la posición original UNA SOLA VEZ
+    local origPos = UDim2.new(box.Position.X.Scale, box.Position.X.Offset, box.Position.Y.Scale, box.Position.Y.Offset)
     for i = 1, 4 do
         local offset = (i % 2 == 0) and 8 or -8
         TS:Create(box, TweenInfo.new(0.06, Enum.EasingStyle.Linear), {
@@ -44,6 +42,7 @@ local function showError(box, btn, label, msg)
         }):Play()
         task.wait(0.06)
     end
+    -- Restaurar SIEMPRE a la posición original guardada
     TS:Create(box, TweenInfo.new(0.06), {Position = origPos}):Play()
     task.wait(0.1)
     label.Text = "🔑 Ingresa tu llave"
@@ -92,7 +91,6 @@ end
 
 -- Función para validar la llave
 local function validateKey(input, label, box, btn)
-    -- Leer el Gist actual
     local content = getGistContent()
     if not content then
         showError(box, btn, label, "❌ Error al conectar con el servidor")
@@ -105,7 +103,6 @@ local function validateKey(input, label, box, btn)
         return
     end
 
-    -- Buscar la llave ingresada
     local foundKey = nil
     local foundIndex = nil
     for i, entry in ipairs(keysData) do
@@ -127,7 +124,6 @@ local function validateKey(input, label, box, btn)
         return
     end
 
-    -- La llave es válida y no usada: marcarla como usada
     foundKey.used = true
     foundKey.user = LP.Name .. " (" .. LP.UserId .. ")"
     keysData[foundIndex] = foundKey
@@ -139,7 +135,6 @@ local function validateKey(input, label, box, btn)
         return
     end
 
-    -- Éxito: ocultar GUI
     local screen = box:FindFirstAncestorOfClass("ScreenGui")
     if screen then
         TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -149,9 +144,6 @@ local function validateKey(input, label, box, btn)
         screen:Destroy()
     end
 
-    -- ============================================================
-    --  🚀 CARGAR EL HUB PRINCIPAL (ChiperPremium) con URL pública
-    -- ============================================================
     local successLoad, err = pcall(function()
         loadstring(game:HttpGet(HUB_URL))()
     end)
@@ -284,7 +276,6 @@ local function createKeyGui()
         if enterPressed then onValidate() end
     end)
 
-    -- Animación de entrada
     panel.BackgroundTransparency = 1
     panel.Size = UDim2.new(0, W * 0.8, 0, H * 0.8)
     panel.Position = UDim2.new(0.5, -W * 0.4, 0.5, -H * 0.4)
@@ -297,7 +288,4 @@ local function createKeyGui()
     return screen
 end
 
--- ============================================================
---  INICIAR EL SISTEMA DE LLAVES
--- ============================================================
 createKeyGui()
