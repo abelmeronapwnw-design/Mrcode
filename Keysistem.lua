@@ -1,4 +1,4 @@
- -- ============================================================
+2 -- ============================================================
 --  SISTEMA DE LLAVES (VERSIÓN LOADSTRING COMPATIBLE)
 -- ============================================================
 
@@ -134,7 +134,7 @@ local function createKeyGui()
     title.Size = UDim2.new(1, -40, 0, 36)
     title.Position = UDim2.new(0, 20, 0, 18)
     title.BackgroundTransparency = 1
-    title.Text = "🔑 ACCESO AL HUB"
+    title.Text = "🌐 ACCESO AL HUB"
     title.TextColor3 = KEY_COLORS.TEXT
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 18
