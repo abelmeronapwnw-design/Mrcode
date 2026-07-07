@@ -5,22 +5,15 @@
 
 -- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
 local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
-local GITHUB_TOKEN = "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"  -- ← AÑADE TU TOKEN AQUÍ
+local GITHUB_TOKEN = ""  -- ← AÑADE TU TOKEN AQUÍ (fine-grained)
 
-local function getHubContent()
-    local url = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium?token=GHSAT0AAAAAAEB5364PI64LISISOZW5UVJC2SMKGZA"
-    local headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
-        ["Accept"] = "application/vnd.github.v3.raw"
-    }
-    local ok, response = pcall(function()
-        return HttpService:GetAsync(url, true, headers)
-    end)
-    if ok then
-        return response
-    end
-    return nil
-end
+-- IMPORTANTE: El Gist DEBE ser PÚBLICO y tener un archivo llamado keys.json
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LP = Players.LocalPlayer
+local TS = game:GetService("TweenService")
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -36,52 +29,80 @@ local KEY_COLORS = {
     OFF = Color3.fromRGB(22, 22, 32)
 }
 
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local LP = Players.LocalPlayer
-local TS = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-
--- Función para mostrar error (shake + flash) - CORREGIDA
-local function showError(box, btn, label, msg)
-    label.Text = msg or "❌ Clave incorrecta"
-    label.TextColor3 = Color3.fromRGB(255, 70, 70)
-    -- Guardar la posición original UNA SOLA VEZ
-    local origPos = UDim2.new(box.Position.X.Scale, box.Position.X.Offset, box.Position.Y.Scale, box.Position.Y.Offset)
-    for i = 1, 4 do
-        local offset = (i % 2 == 0) and 8 or -8
-        TS:Create(box, TweenInfo.new(0.06, Enum.EasingStyle.Linear), {
-            Position = UDim2.new(origPos.X.Scale, origPos.X.Offset + offset, origPos.Y.Scale, origPos.Y.Offset)
-        }):Play()
-        task.wait(0.06)
-    end
-    -- Restaurar SIEMPRE a la posición original guardada
-    TS:Create(box, TweenInfo.new(0.06), {Position = origPos}):Play()
-    task.wait(0.1)
-    label.Text = "🔑 Ingresa tu llave"
-    label.TextColor3 = KEY_COLORS.TEXT
-end
-
--- Función para leer el Gist
+-- Función para leer el Gist CON MEJOR MANEJO DE ERRORES
 local function getGistContent()
+    if GITHUB_TOKEN == "" then
+        warn("❌ ERROR: Token de GitHub vacío en línea 8. Agrega tu fine-grained token.")
+        return nil
+    end
+    
     local url = "https://api.github.com/gists/" .. GIST_ID
     local headers = {
         ["Authorization"] = "token " .. GITHUB_TOKEN,
         ["Accept"] = "application/vnd.github.v3+json"
     }
+    
+    print("🔍 Intentando conectar con Gist: " .. GIST_ID)
+    
     local ok, response = pcall(function()
-        return HttpService:GetAsync(url, false, headers)
+        return HttpService:GetAsync(url, true, headers)
     end)
-    if not ok then return nil end
-    local data = HttpService:JSONDecode(response)
-    if data and data.files and data.files["keys.json"] then
-        return data.files["keys.json"].content
+    
+    if not ok then
+        warn("❌ Error de conexión con la API de GitHub:")
+        warn("   Respuesta: " .. tostring(response))
+        warn("   ¿El token es válido?")
+        warn("   ¿El Gist ID es correcto?")
+        return nil
     end
-    return nil
+    
+    print("✅ Conexión exitosa con API de GitHub")
+    
+    local decodeOk, data = pcall(function()
+        return HttpService:JSONDecode(response)
+    end)
+    
+    if not decodeOk then
+        warn("❌ Error al decodificar respuesta JSON del Gist")
+        print("Respuesta recibida: " .. response)
+        return nil
+    end
+    
+    -- Verificar si hay error en la respuesta
+    if data.message then
+        warn("❌ Error de GitHub API: " .. data.message)
+        if data.documentation_url then
+            warn("   Ver: " .. data.documentation_url)
+        end
+        return nil
+    end
+    
+    -- Buscar el archivo keys.json
+    if not data.files then
+        warn("❌ No hay 'files' en la respuesta del Gist")
+        return nil
+    end
+    
+    if not data.files["keys.json"] then
+        warn("❌ El archivo 'keys.json' NO existe en el Gist")
+        print("Archivos disponibles:")
+        for fileName, _ in pairs(data.files) do
+            print("  - " .. fileName)
+        end
+        return nil
+    end
+    
+    print("✅ Archivo 'keys.json' encontrado en el Gist")
+    return data.files["keys.json"].content
 end
 
 -- Función para actualizar el Gist
 local function updateGistContent(newContent)
+    if GITHUB_TOKEN == "" then
+        warn("❌ ERROR: Token de GitHub vacío")
+        return false
+    end
+    
     local url = "https://api.github.com/gists/" .. GIST_ID
     local headers = {
         ["Authorization"] = "token " .. GITHUB_TOKEN,
@@ -96,25 +117,92 @@ local function updateGistContent(newContent)
         }
     }
     local body = HttpService:JSONEncode(payload)
+    
     local ok, response = pcall(function()
         return HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson, false, headers)
     end)
-    return ok
+    
+    if not ok then
+        warn("❌ Error al actualizar Gist: " .. tostring(response))
+        return false
+    end
+    
+    print("✅ Gist actualizado correctamente")
+    return true
+end
+
+-- Función para obtener el contenido del Hub (repo privado)
+local function getHubContent()
+    if GITHUB_TOKEN == "" then
+        warn("❌ ERROR: Token de GitHub vacío")
+        return nil
+    end
+    
+    local url = "https://api.github.com/repos/abelmeronapwnw-design/Mrcode/contents/ChiperPremium"
+    local headers = {
+        ["Authorization"] = "token " .. GITHUB_TOKEN,
+        ["Accept"] = "application/vnd.github.v3.raw"
+    }
+    
+    local ok, response = pcall(function()
+        return HttpService:GetAsync(url, true, headers)
+    end)
+    
+    if ok then
+        print("✅ Hub cargado exitosamente")
+        return response
+    else
+        warn("❌ Error al obtener el hub: " .. tostring(response))
+        return nil
+    end
+end
+
+-- Función para mostrar error (shake + flash)
+local function showError(box, btn, label, msg)
+    label.Text = msg or "❌ Clave incorrecta"
+    label.TextColor3 = Color3.fromRGB(255, 70, 70)
+    local origPos = UDim2.new(box.Position.X.Scale, box.Position.X.Offset, box.Position.Y.Scale, box.Position.Y.Offset)
+    for i = 1, 4 do
+        local offset = (i % 2 == 0) and 8 or -8
+        TS:Create(box, TweenInfo.new(0.06, Enum.EasingStyle.Linear), {
+            Position = UDim2.new(origPos.X.Scale, origPos.X.Offset + offset, origPos.Y.Scale, origPos.Y.Offset)
+        }):Play()
+        task.wait(0.06)
+    end
+    TS:Create(box, TweenInfo.new(0.06), {Position = origPos}):Play()
+    task.wait(0.1)
+    label.Text = "🔑 Ingresa tu llave"
+    label.TextColor3 = KEY_COLORS.TEXT
 end
 
 -- Función para validar la llave
 local function validateKey(input, label, box, btn)
+    label.Text = "🔄 Verificando..."
+    label.TextColor3 = KEY_COLORS.ICE
+    task.wait(0.3)
+    
+    print("📍 Validando llave: " .. input)
+    
     local content = getGistContent()
     if not content then
         showError(box, btn, label, "❌ Error al conectar con el servidor")
+        box.Text = ""
         return
     end
 
-    local keysData = HttpService:JSONDecode(content)
-    if not keysData then
+    local success, keysData = pcall(function()
+        return HttpService:JSONDecode(content)
+    end)
+    
+    if not success or not keysData then
         showError(box, btn, label, "❌ Error al leer las llaves")
+        print("❌ No se pudo decodificar keys.json")
+        print("Contenido recibido: " .. content)
+        box.Text = ""
         return
     end
+
+    print("✅ JSON de llaves decodificado correctamente")
 
     local foundKey = nil
     local foundIndex = nil
@@ -128,28 +216,37 @@ local function validateKey(input, label, box, btn)
 
     if not foundKey then
         showError(box, btn, label, "❌ Llave no válida")
+        print("❌ Llave no encontrada en el Gist")
+        box.Text = ""
         return
     end
 
     if foundKey.used then
         local user = foundKey.user or "desconocido"
         showError(box, btn, label, "❌ Llave ya usada por " .. user)
+        box.Text = ""
         return
     end
 
+    -- Marcar la llave como usada
     foundKey.used = true
     foundKey.user = LP.Name .. " (" .. LP.UserId .. ")"
     keysData[foundIndex] = foundKey
 
     local newContent = HttpService:JSONEncode(keysData)
-    local success = updateGistContent(newContent)
-    if not success then
+    local updateSuccess = updateGistContent(newContent)
+    if not updateSuccess then
         showError(box, btn, label, "❌ Error al actualizar el servidor")
         return
     end
 
+    -- Transición de salida
+    label.Text = "✅ Acceso concedido"
+    label.TextColor3 = Color3.fromRGB(34, 197, 94)
+    
     local screen = box:FindFirstAncestorOfClass("ScreenGui")
     if screen then
+        task.wait(0.5)
         TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 1
         }):Play()
@@ -157,16 +254,17 @@ local function validateKey(input, label, box, btn)
         screen:Destroy()
     end
 
+    -- Cargar el hub
     local hubContent = getHubContent()
     if hubContent then
         local successLoad, err = pcall(function()
             loadstring(hubContent)()
         end)
         if not successLoad then
-            warn("Error al cargar el hub: " .. tostring(err))
+            warn("❌ Error al cargar el hub: " .. tostring(err))
         end
     else
-        warn("Error al obtener el contenido del hub")
+        warn("❌ Error al obtener el contenido del hub")
     end
 end
 
@@ -306,4 +404,5 @@ local function createKeyGui()
     return screen
 end
 
+print("🚀 Script de llaves iniciado. Abre la consola (F9) para ver los mensajes de debug.")
 createKeyGui()
