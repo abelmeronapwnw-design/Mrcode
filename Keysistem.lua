@@ -1,19 +1,12 @@
  -- ============================================================
---  SISTEMA DE LLAVES CON VERIFICACIÓN REMOTA (Gist)
+--  SISTEMA DE LLAVES CON VERIFICACIÓN (SIN TOKEN)
 --  Integración con ChiperHub - Carga el hub tras validar la llave
+--  TODO PÚBLICO - Sin exposición de tokens
 -- ============================================================
 
--- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
-local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
-local GITHUB_TOKEN = ""  -- ← AÑADE TU TOKEN AQUÍ (fine-grained)
-
--- IMPORTANTE: El Gist DEBE ser PÚBLICO y tener un archivo llamado keys.json
-
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local LP = Players.LocalPlayer
-local TS = game:GetService("TweenService")
+-- ⚠️ CONFIGURA SOLO ESTO ⚠️
+local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"  -- Gist PÚBLICO con keys.json
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"  -- Repo PÚBLICO
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -29,123 +22,48 @@ local KEY_COLORS = {
     OFF = Color3.fromRGB(22, 22, 32)
 }
 
--- Función para leer el Gist CON MEJOR MANEJO DE ERRORES
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local LP = Players.LocalPlayer
+local TS = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+
+-- Función para leer el Gist PÚBLICO (sin token)
 local function getGistContent()
-    if GITHUB_TOKEN == "" then
-        warn("❌ ERROR: Token de GitHub vacío en línea 8. Agrega tu fine-grained token.")
-        return nil
-    end
+    -- Obtener el contenido crudo del Gist PÚBLICO
+    local url = "https://gist.githubusercontent.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json"
     
-    local url = "https://api.github.com/gists/" .. GIST_ID
-    local headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
-        ["Accept"] = "application/vnd.github.v3+json"
-    }
-    
-    print("🔍 Intentando conectar con Gist: " .. GIST_ID)
+    print("🔍 Obteniendo llaves desde Gist público...")
     
     local ok, response = pcall(function()
-        return HttpService:GetAsync(url, true, headers)
+        return HttpService:GetAsync(url, true)  -- Sin headers, sin token
     end)
     
     if not ok then
-        warn("❌ Error de conexión con la API de GitHub:")
-        warn("   Respuesta: " .. tostring(response))
-        warn("   ¿El token es válido?")
-        warn("   ¿El Gist ID es correcto?")
+        warn("❌ Error al conectar con el Gist: " .. tostring(response))
         return nil
     end
     
-    print("✅ Conexión exitosa con API de GitHub")
-    
-    local decodeOk, data = pcall(function()
-        return HttpService:JSONDecode(response)
-    end)
-    
-    if not decodeOk then
-        warn("❌ Error al decodificar respuesta JSON del Gist")
-        print("Respuesta recibida: " .. response)
-        return nil
-    end
-    
-    -- Verificar si hay error en la respuesta
-    if data.message then
-        warn("❌ Error de GitHub API: " .. data.message)
-        if data.documentation_url then
-            warn("   Ver: " .. data.documentation_url)
-        end
-        return nil
-    end
-    
-    -- Buscar el archivo keys.json
-    if not data.files then
-        warn("❌ No hay 'files' en la respuesta del Gist")
-        return nil
-    end
-    
-    if not data.files["keys.json"] then
-        warn("❌ El archivo 'keys.json' NO existe en el Gist")
-        print("Archivos disponibles:")
-        for fileName, _ in pairs(data.files) do
-            print("  - " .. fileName)
-        end
-        return nil
-    end
-    
-    print("✅ Archivo 'keys.json' encontrado en el Gist")
-    return data.files["keys.json"].content
+    print("✅ Gist obtenido correctamente")
+    return response
 end
 
--- Función para actualizar el Gist
+-- Función para actualizar el Gist (usando API pública)
+-- NOTA: Para esto necesitarías un token, pero como no lo usamos,
+-- asumimos que el archivo keys.json se actualiza manualmente en el Gist
 local function updateGistContent(newContent)
-    if GITHUB_TOKEN == "" then
-        warn("❌ ERROR: Token de GitHub vacío")
-        return false
-    end
-    
-    local url = "https://api.github.com/gists/" .. GIST_ID
-    local headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
-        ["Accept"] = "application/vnd.github.v3+json",
-        ["Content-Type"] = "application/json"
-    }
-    local payload = {
-        files = {
-            ["keys.json"] = {
-                content = newContent
-            }
-        }
-    }
-    local body = HttpService:JSONEncode(payload)
-    
-    local ok, response = pcall(function()
-        return HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson, false, headers)
-    end)
-    
-    if not ok then
-        warn("❌ Error al actualizar Gist: " .. tostring(response))
-        return false
-    end
-    
-    print("✅ Gist actualizado correctamente")
-    return true
+    print("⚠️ Nota: Para actualizar el Gist desde el script, necesitarías un token.")
+    print("   De momento, las llaves se marcan como usadas SOLO localmente.")
+    print("   Actualiza manualmente el Gist cuando sea necesario.")
+    return true  -- Simulamos que funcionó
 end
 
--- Función para obtener el contenido del Hub (repo privado)
+-- Función para obtener el contenido del Hub (PÚBLICO, sin token)
 local function getHubContent()
-    if GITHUB_TOKEN == "" then
-        warn("❌ ERROR: Token de GitHub vacío")
-        return nil
-    end
-    
-    local url = "https://api.github.com/repos/abelmeronapwnw-design/Mrcode/contents/ChiperPremium"
-    local headers = {
-        ["Authorization"] = "token " .. GITHUB_TOKEN,
-        ["Accept"] = "application/vnd.github.v3.raw"
-    }
+    print("🔍 Cargando hub...")
     
     local ok, response = pcall(function()
-        return HttpService:GetAsync(url, true, headers)
+        return HttpService:GetAsync(HUB_URL, true)  -- Sin token, es público
     end)
     
     if ok then
@@ -197,7 +115,6 @@ local function validateKey(input, label, box, btn)
     if not success or not keysData then
         showError(box, btn, label, "❌ Error al leer las llaves")
         print("❌ No se pudo decodificar keys.json")
-        print("Contenido recibido: " .. content)
         box.Text = ""
         return
     end
@@ -216,7 +133,7 @@ local function validateKey(input, label, box, btn)
 
     if not foundKey then
         showError(box, btn, label, "❌ Llave no válida")
-        print("❌ Llave no encontrada en el Gist")
+        print("❌ Llave no encontrada")
         box.Text = ""
         return
     end
@@ -224,21 +141,17 @@ local function validateKey(input, label, box, btn)
     if foundKey.used then
         local user = foundKey.user or "desconocido"
         showError(box, btn, label, "❌ Llave ya usada por " .. user)
+        print("⚠️ Llave ya fue utilizada")
         box.Text = ""
         return
     end
 
-    -- Marcar la llave como usada
+    -- Marcar como usada (localmente, no se sincroniza con Gist sin token)
     foundKey.used = true
     foundKey.user = LP.Name .. " (" .. LP.UserId .. ")"
     keysData[foundIndex] = foundKey
 
-    local newContent = HttpService:JSONEncode(keysData)
-    local updateSuccess = updateGistContent(newContent)
-    if not updateSuccess then
-        showError(box, btn, label, "❌ Error al actualizar el servidor")
-        return
-    end
+    print("✅ Llave válida y no usada")
 
     -- Transición de salida
     label.Text = "✅ Acceso concedido"
@@ -404,5 +317,7 @@ local function createKeyGui()
     return screen
 end
 
-print("🚀 Script de llaves iniciado. Abre la consola (F9) para ver los mensajes de debug.")
+print("🚀 Sistema de llaves iniciado (SIN TOKEN)")
+print("📍 Gist ID: " .. GIST_ID)
+print("📍 Hub URL: " .. HUB_URL)
 createKeyGui()
