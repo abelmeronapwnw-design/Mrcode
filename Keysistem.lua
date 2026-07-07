@@ -1,10 +1,3 @@
- -- ============================================================
---  SISTEMA DE LLAVES (SOLO LECTURA)
---  Verifica contra lista blanca en Gist Público
---  Compatible con Delta Executor (usa request/http_request)
--- ============================================================
-
--- ⚠️ CONFIGURACIÓN ⚠️
 local GIST_RAW_URL = "https://gist.githubusercontent.com/abelmeronapwnw-design/d0801495daa4d6b52aa4f0f101d03946/raw/127c49710b1c0237da873669b63e83be1b1d7036/keys.json"
 local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"
 
