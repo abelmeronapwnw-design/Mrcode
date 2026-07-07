@@ -2,11 +2,12 @@
 --  SISTEMA DE LLAVES CON VERIFICACIÓN (SIN TOKEN)
 --  Integración con ChiperHub - Carga el hub tras validar la llave
 --  TODO PÚBLICO - Sin exposición de tokens
+--  CON MÚLTIPLES PROXIES PARA GARANTIZAR FUNCIONAMIENTO
 -- ============================================================
 
 -- ⚠️ CONFIGURA SOLO ESTO ⚠️
-local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"  -- Gist PÚBLICO con keys.json
-local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"  -- Repo PÚBLICO
+local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -28,51 +29,52 @@ local LP = Players.LocalPlayer
 local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
--- Función para leer el Gist PÚBLICO (sin token)
-local function getGistContent()
-    -- Obtener el contenido crudo del Gist PÚBLICO
-    local url = "https://gist.githubusercontent.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json"
-    
-    print("🔍 Obteniendo llaves desde Gist público...")
-    
-    local ok, response = pcall(function()
-        return HttpService:GetAsync(url, true)  -- Sin headers, sin token
-    end)
-    
-    if not ok then
-        warn("❌ Error al conectar con el Gist: " .. tostring(response))
-        return nil
+-- URLs proxy para intentar en orden
+local GIST_URLS = {
+    "https://gist.githubusercontent.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
+    "https://raw.githubusercontent.com/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
+    "https://cdn.jsdelivr.net/gh/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "@latest/keys.json",
+    "https://raw.githack.com/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
+}
+
+-- URLs proxy para el hub
+local HUB_URLS = {
+    "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium",
+    "https://cdn.jsdelivr.net/gh/abelmeronapwnw-design/Mrcode@main/ChiperPremium",
+    "https://raw.githack.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium",
+}
+
+-- Función para intentar múltiples URLs
+local function tryMultipleUrls(urls, description)
+    for i, url in ipairs(urls) do
+        print("🔄 Intento " .. i .. " para " .. description .. ": " .. url:sub(1, 50) .. "...")
+        
+        local ok, response = pcall(function()
+            return HttpService:GetAsync(url, true)
+        end)
+        
+        if ok and response and response ~= "" then
+            print("✅ ÉXITO con URL " .. i .. ": " .. url:sub(1, 50) .. "...")
+            return response
+        else
+            print("❌ Fallo intento " .. i)
+        end
     end
     
-    print("✅ Gist obtenido correctamente")
-    return response
+    print("❌ Todas las URLs fallaron para " .. description)
+    return nil
 end
 
--- Función para actualizar el Gist (usando API pública)
--- NOTA: Para esto necesitarías un token, pero como no lo usamos,
--- asumimos que el archivo keys.json se actualiza manualmente en el Gist
-local function updateGistContent(newContent)
-    print("⚠️ Nota: Para actualizar el Gist desde el script, necesitarías un token.")
-    print("   De momento, las llaves se marcan como usadas SOLO localmente.")
-    print("   Actualiza manualmente el Gist cuando sea necesario.")
-    return true  -- Simulamos que funcionó
+-- Función para leer el Gist (intentando múltiples proxies)
+local function getGistContent()
+    print("🔍 Obteniendo llaves desde Gist público...")
+    return tryMultipleUrls(GIST_URLS, "Gist")
 end
 
--- Función para obtener el contenido del Hub (PÚBLICO, sin token)
+-- Función para obtener el contenido del Hub (intentando múltiples proxies)
 local function getHubContent()
     print("🔍 Cargando hub...")
-    
-    local ok, response = pcall(function()
-        return HttpService:GetAsync(HUB_URL, true)  -- Sin token, es público
-    end)
-    
-    if ok then
-        print("✅ Hub cargado exitosamente")
-        return response
-    else
-        warn("❌ Error al obtener el hub: " .. tostring(response))
-        return nil
-    end
+    return tryMultipleUrls(HUB_URLS, "Hub")
 end
 
 -- Función para mostrar error (shake + flash)
@@ -115,6 +117,7 @@ local function validateKey(input, label, box, btn)
     if not success or not keysData then
         showError(box, btn, label, "❌ Error al leer las llaves")
         print("❌ No se pudo decodificar keys.json")
+        print("Contenido recibido: " .. tostring(content):sub(1, 100))
         box.Text = ""
         return
     end
@@ -134,6 +137,7 @@ local function validateKey(input, label, box, btn)
     if not foundKey then
         showError(box, btn, label, "❌ Llave no válida")
         print("❌ Llave no encontrada")
+        print("Llaves disponibles: " .. tostring(#keysData))
         box.Text = ""
         return
     end
@@ -146,7 +150,7 @@ local function validateKey(input, label, box, btn)
         return
     end
 
-    -- Marcar como usada (localmente, no se sincroniza con Gist sin token)
+    -- Marcar como usada (localmente)
     foundKey.used = true
     foundKey.user = LP.Name .. " (" .. LP.UserId .. ")"
     keysData[foundIndex] = foundKey
@@ -317,7 +321,8 @@ local function createKeyGui()
     return screen
 end
 
-print("🚀 Sistema de llaves iniciado (SIN TOKEN)")
-print("📍 Gist ID: " .. GIST_ID)
-print("📍 Hub URL: " .. HUB_URL)
+print("🚀 Sistema de llaves iniciado (CON MÚLTIPLES PROXIES)")
+print("📍 Probando " .. #GIST_URLS .. " proxies para Gist")
+print("📍 Probando " .. #HUB_URLS .. " proxies para Hub")
+print("💡 Abre la consola (F9) para ver qué proxy funciona")
 createKeyGui()
