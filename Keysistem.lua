@@ -4,10 +4,23 @@
 -- ============================================================
 
 -- ⚠️ COMPLETA ESTOS DOS DATOS CON LOS TUYOS ⚠️
-local GIST_ID = "f0381c03fb329e9d454152b9f3ffc57d"
-local GITHUB_TOKEN = "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"
+local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
+local GITHUB_TOKEN = ""  -- ← AÑADE TU TOKEN AQUÍ
 
-local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium"
+local function getHubContent()
+    local url = "https://api.github.com/repos/abelmeronapwnw-design/Mrcode/contents/ChiperPremium"
+    local headers = {
+        ["Authorization"] = "token " .. GITHUB_TOKEN,
+        ["Accept"] = "application/vnd.github.v3.raw"
+    }
+    local ok, response = pcall(function()
+        return HttpService:GetAsync(url, true, headers)
+    end)
+    if ok then
+        return response
+    end
+    return nil
+end
 
 -- Colores (misma temática que tu hub)
 local KEY_COLORS = {
@@ -57,7 +70,7 @@ local function getGistContent()
         ["Accept"] = "application/vnd.github.v3+json"
     }
     local ok, response = pcall(function()
-        return HttpService:GetAsync(url, headers)
+        return HttpService:GetAsync(url, false, headers)
     end)
     if not ok then return nil end
     local data = HttpService:JSONDecode(response)
@@ -144,11 +157,16 @@ local function validateKey(input, label, box, btn)
         screen:Destroy()
     end
 
-    local successLoad, err = pcall(function()
-        loadstring(game:HttpGet(HUB_URL))()
-    end)
-    if not successLoad then
-        warn("Error al cargar el hub: " .. tostring(err))
+    local hubContent = getHubContent()
+    if hubContent then
+        local successLoad, err = pcall(function()
+            loadstring(hubContent)()
+        end)
+        if not successLoad then
+            warn("Error al cargar el hub: " .. tostring(err))
+        end
+    else
+        warn("Error al obtener el contenido del hub")
     end
 end
 
