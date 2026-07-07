@@ -1,31 +1,30 @@
- -- ============================================================
---  VERIFICACIÓN DE ORIGEN (solo funciona si fue cargado por el sistema de llaves)
+ 
 -- ============================================================
+--  CHIPER PREMIUM - REDIRECCIONADOR
+--  Si se ejecuta sin verificación, carga el sistema de llaves.
+-- ============================================================
+
 if not _G.__CHIPER_KEY_VERIFIED then
-    warn("🚫 Acceso denegado: Este hub solo puede ejecutarse a través del sistema de llaves oficial.")
-    local player = game:GetService("Players").LocalPlayer
-    local gui = Instance.new("ScreenGui")
-    gui.Parent = player:WaitForChild("PlayerGui")
-    local frame = Instance.new("Frame", gui)
-    frame.Size = UDim2.new(0, 400, 0, 100)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -50)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "🔒 Este hub requiere una llave válida.\nObtén tu llave en nuestro Discord."
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 18
-    label.TextWrapped = true
-    label.TextScaled = true
-    task.wait(5)
-    gui:Destroy()
-    return
+    -- Cargar el sistema de llaves desde GitHub
+    local keysUrl = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/Keysistem.lua"
+    local success, result = pcall(function()
+        return game:HttpGet(keysUrl)
+    end)
+    if success and result then
+        loadstring(result)()
+    else
+        warn("❌ No se pudo cargar el sistema de llaves. Asegúrate de tener conexión a Internet.")
+    end
+    return  -- Detener la ejecución del hub
 end
 
-  repeat task.wait() until game:IsLoaded()
+-- ============================================================
+--  AQUÍ VA TODO EL CÓDIGO ORIGINAL DE TU HUB (ChiperPremium)
+--  (TODO lo que tenías antes, sin modificar)
+-- ============================================================
+
+
+repeat task.wait() until game:IsLoaded()
 local Players,RunService,UIS,TS,Lighting,HS,SoundService = game:GetService("Players"),game:GetService("RunService"),game:GetService("UserInputService"),game:GetService("TweenService"),game:GetService("Lighting"),game:GetService("HttpService"),game:GetService("SoundService")
 local CoreGui = game:GetService("CoreGui")
 local LP = Players.LocalPlayer
