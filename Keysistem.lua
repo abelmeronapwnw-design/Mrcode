@@ -1,12 +1,11 @@
  -- ============================================================
---  SISTEMA DE LLAVES CON VERIFICACIÓN (SIN TOKEN)
---  Integración con ChiperHub - Carga el hub tras validar la llave
---  TODO PÚBLICO - Sin exposición de tokens
---  CON MÚLTIPLES PROXIES PARA GARANTIZAR FUNCIONAMIENTO
+--  SISTEMA DE LLAVES (SOLO LECTURA)
+--  Verifica contra lista blanca en Gist Público
+--  Compatible con Delta Executor (usa request/http_request)
 -- ============================================================
 
--- ⚠️ CONFIGURA SOLO ESTO ⚠️
-local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
+-- ⚠️ CONFIGURACIÓN ⚠️
+local GIST_RAW_URL = "https://gist.githubusercontent.com/abelmeronapwnw-design/d0801495daa4d6b52aa4f0f101d03946/raw/127c49710b1c0237da873669b63e83be1b1d7036/keys.json"
 local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"
 
 -- Colores (misma temática que tu hub)
@@ -29,57 +28,121 @@ local LP = Players.LocalPlayer
 local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
--- URLs proxy para intentar en orden
-local GIST_URLS = {
-    "https://gist.githubusercontent.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
-    "https://raw.githubusercontent.com/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
-    "https://cdn.jsdelivr.net/gh/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "@latest/keys.json",
-    "https://raw.githack.com/gist.github.com/abelmeronapwnw-design/" .. GIST_ID .. "/raw/keys.json",
-}
+-- ============================================================
+--  🔥 FUNCIÓN DE DESCARGA COMPATIBLE CON DELTA
+-- ============================================================
+local function httpGet(url)
+    local HttpFunc = request or http_request or (http and http.request)
+    if not HttpFunc then
+        warn("❌ No se encontró ninguna función HTTP")
+        return nil
+    end
+    
+    local success, response = pcall(function()
+        return HttpFunc({
+            Url = url,
+            Method = "GET"
+        })
+    end)
+    
+    if not success then
+        warn("❌ Error HTTP: " .. tostring(response))
+        return nil
+    end
+    
+    if response and response.StatusCode == 200 then
+        return response.Body
+    else
+        warn("❌ HTTP Status: " .. tostring(response and response.StatusCode))
+        return nil
+    end
+end
 
--- URLs proxy para el hub
-local HUB_URLS = {
-    "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium",
-    "https://cdn.jsdelivr.net/gh/abelmeronapwnw-design/Mrcode@main/ChiperPremium",
-    "https://raw.githack.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium",
-}
+-- ============================================================
+--  LEER EL GIST (SOLO LECTURA, SIN TOKEN)
+-- ============================================================
+local function getKeysFromGist()
+    print("🔍 Descargando lista de llaves...")
+    local content = httpGet(GIST_RAW_URL)
+    if not content then return nil end
+    
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(content)
+    end)
+    
+    if not success or not data then
+        warn("❌ Error al decodificar JSON")
+        return nil
+    end
+    
+    return data
+end
 
--- Función para intentar múltiples URLs
-local function tryMultipleUrls(urls, description)
-    for i, url in ipairs(urls) do
-        print("🔄 Intento " .. i .. " para " .. description .. ": " .. url:sub(1, 50) .. "...")
-        
-        local ok, response = pcall(function()
-            return HttpService:GetAsync(url, true)
-        end)
-        
-        if ok and response and response ~= "" then
-            print("✅ ÉXITO con URL " .. i .. ": " .. url:sub(1, 50) .. "...")
-            return response
-        else
-            print("❌ Fallo intento " .. i)
+-- ============================================================
+--  VALIDACIÓN DE LLAVE (SOLO COMPARACIÓN)
+-- ============================================================
+local function validateKey(input, label, box, btn)
+    label.Text = "🔄 Verificando..."
+    label.TextColor3 = KEY_COLORS.ICE
+    task.wait(0.3)
+    
+    local keysData = getKeysFromGist()
+    if not keysData then
+        showError(box, btn, label, "❌ Error al leer las llaves")
+        box.Text = ""
+        return
+    end
+    
+    -- Buscar la llave en la lista
+    local found = false
+    for _, entry in ipairs(keysData) do
+        if entry.key == input then
+            found = true
+            break
         end
     end
     
-    print("❌ Todas las URLs fallaron para " .. description)
-    return nil
-end
-
--- Función para leer el Gist (intentando múltiples proxies)
-local function getGistContent()
-    print("🔍 Obteniendo llaves desde Gist público...")
-    return tryMultipleUrls(GIST_URLS, "Gist")
-end
-
--- Función para obtener el contenido del Hub (intentando múltiples proxies)
-local function getHubContent()
+    if not found then
+        showError(box, btn, label, "❌ Llave incorrecta")
+        box.Text = ""
+        return
+    end
+    
+    -- Llave válida
+    print("✅ Llave válida")
+    label.Text = "✅ Acceso concedido"
+    label.TextColor3 = Color3.fromRGB(34, 197, 94)
+    
+    local screen = box:FindFirstAncestorOfClass("ScreenGui")
+    if screen then
+        task.wait(0.5)
+        TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 1
+        }):Play()
+        task.wait(0.35)
+        screen:Destroy()
+    end
+    
+    -- Descargar y ejecutar el hub
     print("🔍 Cargando hub...")
-    return tryMultipleUrls(HUB_URLS, "Hub")
+    local hubContent = httpGet(HUB_URL)
+    if hubContent then
+        local successLoad, err = pcall(function()
+            loadstring(hubContent)()
+        end)
+        if not successLoad then
+            warn("❌ Error al cargar el hub: " .. tostring(err))
+        end
+    else
+        warn("❌ Error al obtener el hub")
+    end
 end
 
--- Función para mostrar error (shake + flash)
+-- ============================================================
+--  FUNCIÓN DE ERROR (CORREGIDA)
+-- ============================================================
 local function showError(box, btn, label, msg)
-    label.Text = msg or "❌ Clave incorrecta"
+    label.Text = msg or "❌ Error"
     label.TextColor3 = Color3.fromRGB(255, 70, 70)
     local origPos = UDim2.new(box.Position.X.Scale, box.Position.X.Offset, box.Position.Y.Scale, box.Position.Y.Offset)
     for i = 1, 4 do
@@ -95,97 +158,9 @@ local function showError(box, btn, label, msg)
     label.TextColor3 = KEY_COLORS.TEXT
 end
 
--- Función para validar la llave
-local function validateKey(input, label, box, btn)
-    label.Text = "🔄 Verificando..."
-    label.TextColor3 = KEY_COLORS.ICE
-    task.wait(0.3)
-    
-    print("📍 Validando llave: " .. input)
-    
-    local content = getGistContent()
-    if not content then
-        showError(box, btn, label, "❌ Error al conectar con el servidor")
-        box.Text = ""
-        return
-    end
-
-    local success, keysData = pcall(function()
-        return HttpService:JSONDecode(content)
-    end)
-    
-    if not success or not keysData then
-        showError(box, btn, label, "❌ Error al leer las llaves")
-        print("❌ No se pudo decodificar keys.json")
-        print("Contenido recibido: " .. tostring(content):sub(1, 100))
-        box.Text = ""
-        return
-    end
-
-    print("✅ JSON de llaves decodificado correctamente")
-
-    local foundKey = nil
-    local foundIndex = nil
-    for i, entry in ipairs(keysData) do
-        if entry.key == input then
-            foundKey = entry
-            foundIndex = i
-            break
-        end
-    end
-
-    if not foundKey then
-        showError(box, btn, label, "❌ Llave no válida")
-        print("❌ Llave no encontrada")
-        print("Llaves disponibles: " .. tostring(#keysData))
-        box.Text = ""
-        return
-    end
-
-    if foundKey.used then
-        local user = foundKey.user or "desconocido"
-        showError(box, btn, label, "❌ Llave ya usada por " .. user)
-        print("⚠️ Llave ya fue utilizada")
-        box.Text = ""
-        return
-    end
-
-    -- Marcar como usada (localmente)
-    foundKey.used = true
-    foundKey.user = LP.Name .. " (" .. LP.UserId .. ")"
-    keysData[foundIndex] = foundKey
-
-    print("✅ Llave válida y no usada")
-
-    -- Transición de salida
-    label.Text = "✅ Acceso concedido"
-    label.TextColor3 = Color3.fromRGB(34, 197, 94)
-    
-    local screen = box:FindFirstAncestorOfClass("ScreenGui")
-    if screen then
-        task.wait(0.5)
-        TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundTransparency = 1
-        }):Play()
-        task.wait(0.35)
-        screen:Destroy()
-    end
-
-    -- Cargar el hub
-    local hubContent = getHubContent()
-    if hubContent then
-        local successLoad, err = pcall(function()
-            loadstring(hubContent)()
-        end)
-        if not successLoad then
-            warn("❌ Error al cargar el hub: " .. tostring(err))
-        end
-    else
-        warn("❌ Error al obtener el contenido del hub")
-    end
-end
-
--- Crear la interfaz de la llave
+-- ============================================================
+--  INTERFAZ GRÁFICA (SIN CAMBIOS)
+-- ============================================================
 local function createKeyGui()
     local old = CoreGui:FindFirstChild("ChiperKeyScreen")
     if old then old:Destroy() end
@@ -321,8 +296,9 @@ local function createKeyGui()
     return screen
 end
 
-print("🚀 Sistema de llaves iniciado (CON MÚLTIPLES PROXIES)")
-print("📍 Probando " .. #GIST_URLS .. " proxies para Gist")
-print("📍 Probando " .. #HUB_URLS .. " proxies para Hub")
-print("💡 Abre la consola (F9) para ver qué proxy funciona")
+-- ============================================================
+--  INICIAR
+-- ============================================================
+print("🚀 Sistema de llaves (solo lectura) iniciado")
+print("💡 Abre la consola (F9) para ver el progreso")
 createKeyGui()
