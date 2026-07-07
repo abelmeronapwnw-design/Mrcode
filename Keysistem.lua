@@ -1,7 +1,13 @@
+ -- ============================================================
+--  SISTEMA DE LLAVES (SOLO LECTURA) - VERSIÓN FINAL
+--  Compatible con Delta Executor - Interfaz original
+-- ============================================================
+
+-- CONFIGURACIÓN
 local GIST_RAW_URL = "https://gist.githubusercontent.com/abelmeronapwnw-design/d0801495daa4d6b52aa4f0f101d03946/raw/127c49710b1c0237da873669b63e83be1b1d7036/keys.json"
 local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"
 
--- Colores (misma temática que tu hub)
+-- COLORES (misma temática)
 local KEY_COLORS = {
     BG = Color3.fromRGB(8, 8, 15),
     PANEL = Color3.fromRGB(12, 12, 18),
@@ -22,120 +28,37 @@ local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
 -- ============================================================
---  🔥 FUNCIÓN DE DESCARGA COMPATIBLE CON DELTA
+--  FUNCIÓN HTTP COMPATIBLE CON DELTA
 -- ============================================================
 local function httpGet(url)
     local HttpFunc = request or http_request or (http and http.request)
     if not HttpFunc then
-        warn("❌ No se encontró ninguna función HTTP")
+        warn("❌ No hay función HTTP")
         return nil
     end
-    
-    local success, response = pcall(function()
-        return HttpFunc({
-            Url = url,
-            Method = "GET"
-        })
+
+    local ok, res = pcall(function()
+        return HttpFunc({ Url = url, Method = "GET" })
     end)
-    
-    if not success then
-        warn("❌ Error HTTP: " .. tostring(response))
+
+    if not ok then
+        warn("❌ Error HTTP: " .. tostring(res))
         return nil
     end
-    
-    if response and response.StatusCode == 200 then
-        return response.Body
+
+    if res and res.StatusCode == 200 then
+        return res.Body
     else
-        warn("❌ HTTP Status: " .. tostring(response and response.StatusCode))
+        warn("❌ Status: " .. tostring(res and res.StatusCode))
         return nil
     end
 end
 
 -- ============================================================
---  LEER EL GIST (SOLO LECTURA, SIN TOKEN)
--- ============================================================
-local function getKeysFromGist()
-    print("🔍 Descargando lista de llaves...")
-    local content = httpGet(GIST_RAW_URL)
-    if not content then return nil end
-    
-    local success, data = pcall(function()
-        return HttpService:JSONDecode(content)
-    end)
-    
-    if not success or not data then
-        warn("❌ Error al decodificar JSON")
-        return nil
-    end
-    
-    return data
-end
-
--- ============================================================
---  VALIDACIÓN DE LLAVE (SOLO COMPARACIÓN)
--- ============================================================
-local function validateKey(input, label, box, btn)
-    label.Text = "🔄 Verificando..."
-    label.TextColor3 = KEY_COLORS.ICE
-    task.wait(0.3)
-    
-    local keysData = getKeysFromGist()
-    if not keysData then
-        showError(box, btn, label, "❌ Error al leer las llaves")
-        box.Text = ""
-        return
-    end
-    
-    -- Buscar la llave en la lista
-    local found = false
-    for _, entry in ipairs(keysData) do
-        if entry.key == input then
-            found = true
-            break
-        end
-    end
-    
-    if not found then
-        showError(box, btn, label, "❌ Llave incorrecta")
-        box.Text = ""
-        return
-    end
-    
-    -- Llave válida
-    print("✅ Llave válida")
-    label.Text = "✅ Acceso concedido"
-    label.TextColor3 = Color3.fromRGB(34, 197, 94)
-    
-    local screen = box:FindFirstAncestorOfClass("ScreenGui")
-    if screen then
-        task.wait(0.5)
-        TS:Create(screen, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundTransparency = 1
-        }):Play()
-        task.wait(0.35)
-        screen:Destroy()
-    end
-    
-    -- Descargar y ejecutar el hub
-    print("🔍 Cargando hub...")
-    local hubContent = httpGet(HUB_URL)
-    if hubContent then
-        local successLoad, err = pcall(function()
-            loadstring(hubContent)()
-        end)
-        if not successLoad then
-            warn("❌ Error al cargar el hub: " .. tostring(err))
-        end
-    else
-        warn("❌ Error al obtener el hub")
-    end
-end
-
--- ============================================================
---  FUNCIÓN DE ERROR (CORREGIDA)
+--  MOSTRAR ERROR (CON SACUDIDA)
 -- ============================================================
 local function showError(box, btn, label, msg)
-    label.Text = msg or "❌ Error"
+    label.Text = msg or "❌ Clave incorrecta"
     label.TextColor3 = Color3.fromRGB(255, 70, 70)
     local origPos = UDim2.new(box.Position.X.Scale, box.Position.X.Offset, box.Position.Y.Scale, box.Position.Y.Offset)
     for i = 1, 4 do
@@ -152,9 +75,10 @@ local function showError(box, btn, label, msg)
 end
 
 -- ============================================================
---  INTERFAZ GRÁFICA (SIN CAMBIOS)
+--  INTERFAZ PRINCIPAL
 -- ============================================================
 local function createKeyGui()
+    -- Eliminar GUI antigua
     local old = CoreGui:FindFirstChild("ChiperKeyScreen")
     if old then old:Destroy() end
 
@@ -168,14 +92,18 @@ local function createKeyGui()
     end)
     screen.Parent = CoreGui
 
+    -- Fondo oscuro
     local backdrop = Instance.new("Frame", screen)
+    backdrop.Name = "Backdrop"
     backdrop.Size = UDim2.new(1, 0, 1, 0)
     backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     backdrop.BackgroundTransparency = 0.5
     backdrop.BorderSizePixel = 0
 
+    -- Panel principal
     local W, H = 320, 180
     local panel = Instance.new("Frame", screen)
+    panel.Name = "Panel"
     panel.Size = UDim2.new(0, W, 0, H)
     panel.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
     panel.BackgroundColor3 = KEY_COLORS.BG
@@ -183,6 +111,7 @@ local function createKeyGui()
     panel.ClipsDescendants = true
     Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 20)
 
+    -- Borde con gradiente
     local stroke = Instance.new("UIStroke", panel)
     stroke.Color = KEY_COLORS.ACCENT
     stroke.Thickness = 1.5
@@ -191,6 +120,7 @@ local function createKeyGui()
     gradStroke.Color = ColorSequence.new(KEY_COLORS.ACCENT, KEY_COLORS.ICE)
     gradStroke.Rotation = 45
 
+    -- Título
     local title = Instance.new("TextLabel", panel)
     title.Size = UDim2.new(1, -40, 0, 36)
     title.Position = UDim2.new(0, 20, 0, 18)
@@ -203,6 +133,7 @@ local function createKeyGui()
     local titleGrad = Instance.new("UIGradient", title)
     titleGrad.Color = ColorSequence.new(KEY_COLORS.ACCENT, KEY_COLORS.ICE)
 
+    -- Etiqueta
     local label = Instance.new("TextLabel", panel)
     label.Size = UDim2.new(1, -40, 0, 22)
     label.Position = UDim2.new(0, 20, 0, 62)
@@ -213,6 +144,7 @@ local function createKeyGui()
     label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- Caja de texto
     local box = Instance.new("TextBox", panel)
     box.Size = UDim2.new(1, -40, 0, 44)
     box.Position = UDim2.new(0, 20, 0, 92)
@@ -235,6 +167,7 @@ local function createKeyGui()
     boxGrad.Color = ColorSequence.new(KEY_COLORS.ACCENT, KEY_COLORS.ICE)
     boxGrad.Rotation = 0
 
+    -- Botón ENTER
     local btn = Instance.new("TextButton", panel)
     btn.Size = UDim2.new(0, 110, 0, 44)
     btn.Position = UDim2.new(1, -130, 0, 92)
@@ -263,20 +196,92 @@ local function createKeyGui()
         TS:Create(btn, TweenInfo.new(0.12), {Size = UDim2.new(0, 110, 0, 44), Position = UDim2.new(1, -130, 0, 92)}):Play()
     end)
 
+    -- ============================================================
+    --  VALIDACIÓN (cierra la GUI usando backdrop y panel, no screen)
+    -- ============================================================
+    local function validateKey(input)
+        label.Text = "🔄 Verificando..."
+        label.TextColor3 = KEY_COLORS.ICE
+        task.wait(0.3)
+
+        local content = httpGet(GIST_RAW_URL)
+        if not content then
+            showError(box, btn, label, "❌ Error al conectar")
+            box.Text = ""
+            return
+        end
+
+        local ok, keysData = pcall(function()
+            return HttpService:JSONDecode(content)
+        end)
+
+        if not ok or not keysData then
+            showError(box, btn, label, "❌ Error al leer llaves")
+            box.Text = ""
+            return
+        end
+
+        local found = false
+        for _, entry in ipairs(keysData) do
+            if entry.key == input then
+                found = true
+                break
+            end
+        end
+
+        if not found then
+            showError(box, btn, label, "❌ Llave incorrecta")
+            box.Text = ""
+            return
+        end
+
+        -- Llave válida
+        print("✅ Llave válida")
+        label.Text = "✅ Acceso concedido"
+        label.TextColor3 = Color3.fromRGB(34, 197, 94)
+
+        -- Cerrar GUI animando backdrop y panel (NO el ScreenGui)
+        task.wait(0.5)
+        TS:Create(backdrop, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 1
+        }):Play()
+        TS:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, -W/2, 0.5, -H/2 + 20)
+        }):Play()
+        task.wait(0.35)
+        screen:Destroy()
+
+        -- Cargar hub
+        local hubContent = httpGet(HUB_URL)
+        if hubContent then
+            local fn, err = loadstring(hubContent)
+            if fn then
+                fn()
+            else
+                warn("❌ Error compilando hub: " .. tostring(err))
+            end
+        else
+            warn("❌ Error descargando hub")
+        end
+    end
+
+    -- Conectar eventos
     local function onValidate()
         local input = box.Text:gsub("%s+", "")
         if input == "" then
             showError(box, btn, label, "⚠️ Ingresa un código")
             return
         end
-        validateKey(input, label, box, btn)
+        validateKey(input)
     end
 
     btn.Activated:Connect(onValidate)
-    box.FocusLost:Connect(function(enterPressed)
-        if enterPressed then onValidate() end
+    box.FocusLost:Connect(function(enter)
+        if enter then onValidate() end
     end)
 
+    -- Animación de entrada
     panel.BackgroundTransparency = 1
     panel.Size = UDim2.new(0, W * 0.8, 0, H * 0.8)
     panel.Position = UDim2.new(0.5, -W * 0.4, 0.5, -H * 0.4)
@@ -285,13 +290,10 @@ local function createKeyGui()
         Size = UDim2.new(0, W, 0, H),
         Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
     }):Play()
-
-    return screen
 end
 
 -- ============================================================
---  INICIAR
+--  EJECUTAR
 -- ============================================================
-print("🚀 Sistema de llaves (solo lectura) iniciado")
-print("💡 Abre la consola (F9) para ver el progreso")
+print("🚀 Sistema de llaves iniciado (versión corregida)")
 createKeyGui()
