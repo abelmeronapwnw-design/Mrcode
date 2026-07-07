@@ -8,7 +8,7 @@ local GIST_ID = "d0801495daa4d6b52aa4f0f101d03946"
 local GITHUB_TOKEN = "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"  -- ← AÑADE TU TOKEN AQUÍ
 
 local function getHubContent()
-    local url = "https://api.github.com/repos/abelmeronapwnw-design/Mrcode/contents/ChiperPremium"
+    local url = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium?token=GHSAT0AAAAAAEB5364PI64LISISOZW5UVJC2SMKGZA"
     local headers = {
         ["Authorization"] = "token " .. GITHUB_TOKEN,
         ["Accept"] = "application/vnd.github.v3.raw"
