@@ -1,11 +1,11 @@
-   -- ============================================================
+-- ============================================================
 --  SISTEMA DE LLAVES (SOLO LECTURA) - VERSIÓN FINAL
 --  Compatible con Delta Executor - Interfaz original
 -- ============================================================
 
 -- CONFIGURACIÓN
 local GIST_RAW_URL = "https://gist.githubusercontent.com/abelmeronapwnw-design/d0801495daa4d6b52aa4f0f101d03946/raw/127c49710b1c0237da873669b63e83be1b1d7036/keys.json"
-local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/refs/heads/main/ChiperPremium"
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"  -- <--- TU URL DEL HUB
 
 -- COLORES (misma temática)
 local KEY_COLORS = {
@@ -251,6 +251,11 @@ local function createKeyGui()
         }):Play()
         task.wait(0.35)
         screen:Destroy()
+
+        -- ============================================================
+        --  🔥 ESTABLECER LA VARIABLE GLOBAL ANTES DE CARGAR EL HUB
+        -- ============================================================
+        _G.__CHIPER_KEY_VERIFIED = true   -- <--- ESTA ES LA LÍNEA CLAVE
 
         -- Cargar hub
         local hubContent = httpGet(HUB_URL)
