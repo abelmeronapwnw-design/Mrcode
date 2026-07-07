@@ -1,18 +1,13 @@
+   -- ============================================================
+--  SISTEMA DE LLAVES (SOLO LECTURA) - VERSIÓN FINAL
+--  Compatible con Delta Executor - Interfaz original
 -- ============================================================
---  SISTEMA DE LLAVES (VERSIÓN LOADSTRING COMPATIBLE)
--- ============================================================
-
--- Si ya existe una GUI, eliminarla
-if _G._keyScreen then
-    pcall(function() _G._keyScreen:Destroy() end)
-    _G._keyScreen = nil
-end
 
 -- CONFIGURACIÓN
 local GIST_RAW_URL = "https://gist.githubusercontent.com/abelmeronapwnw-design/d0801495daa4d6b52aa4f0f101d03946/raw/127c49710b1c0237da873669b63e83be1b1d7036/keys.json"
-local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium"
+local HUB_URL = "https://raw.githubusercontent.com/abelmeronapwnw-design/Mrcode/main/ChiperPremium2.txt"
 
--- COLORES
+-- COLORES (misma temática)
 local KEY_COLORS = {
     BG = Color3.fromRGB(8, 8, 15),
     PANEL = Color3.fromRGB(12, 12, 18),
@@ -33,7 +28,7 @@ local TS = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
 -- ============================================================
---  FUNCIÓN HTTP (COMPATIBLE CON DELTA)
+--  FUNCIÓN HTTP COMPATIBLE CON DELTA
 -- ============================================================
 local function httpGet(url)
     local HttpFunc = request or http_request or (http and http.request)
@@ -60,7 +55,7 @@ local function httpGet(url)
 end
 
 -- ============================================================
---  FUNCIÓN DE ERROR (CON SACUDIDA)
+--  MOSTRAR ERROR (CON SACUDIDA)
 -- ============================================================
 local function showError(box, btn, label, msg)
     label.Text = msg or "❌ Clave incorrecta"
@@ -80,15 +75,12 @@ local function showError(box, btn, label, msg)
 end
 
 -- ============================================================
---  CREAR INTERFAZ
+--  INTERFAZ PRINCIPAL
 -- ============================================================
 local function createKeyGui()
+    -- Eliminar GUI antigua
     local old = CoreGui:FindFirstChild("ChiperKeyScreen")
     if old then old:Destroy() end
-    if _G._keyScreen then
-        pcall(function() _G._keyScreen:Destroy() end)
-        _G._keyScreen = nil
-    end
 
     local screen = Instance.new("ScreenGui")
     screen.Name = "ChiperKeyScreen"
@@ -99,9 +91,8 @@ local function createKeyGui()
         if syn and syn.protect_gui then syn.protect_gui(screen) end
     end)
     screen.Parent = CoreGui
-    _G._keyScreen = screen -- Guardar referencia global
 
-    -- Fondo
+    -- Fondo oscuro
     local backdrop = Instance.new("Frame", screen)
     backdrop.Name = "Backdrop"
     backdrop.Size = UDim2.new(1, 0, 1, 0)
@@ -134,7 +125,7 @@ local function createKeyGui()
     title.Size = UDim2.new(1, -40, 0, 36)
     title.Position = UDim2.new(0, 20, 0, 18)
     title.BackgroundTransparency = 1
-    title.Text = "🌐 ACCESO AL HUB"
+    title.Text = "🔑 ACCESO AL HUB"
     title.TextColor3 = KEY_COLORS.TEXT
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 18
@@ -206,7 +197,7 @@ local function createKeyGui()
     end)
 
     -- ============================================================
-    --  VALIDACIÓN
+    --  VALIDACIÓN (cierra la GUI usando backdrop y panel, no screen)
     -- ============================================================
     local function validateKey(input)
         label.Text = "🔄 Verificando..."
@@ -249,7 +240,7 @@ local function createKeyGui()
         label.Text = "✅ Acceso concedido"
         label.TextColor3 = Color3.fromRGB(34, 197, 94)
 
-        -- Cerrar GUI
+        -- Cerrar GUI animando backdrop y panel (NO el ScreenGui)
         task.wait(0.5)
         TS:Create(backdrop, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundTransparency = 1
@@ -260,7 +251,6 @@ local function createKeyGui()
         }):Play()
         task.wait(0.35)
         screen:Destroy()
-        _G._keyScreen = nil
 
         -- Cargar hub
         local hubContent = httpGet(HUB_URL)
@@ -276,6 +266,7 @@ local function createKeyGui()
         end
     end
 
+    -- Conectar eventos
     local function onValidate()
         local input = box.Text:gsub("%s+", "")
         if input == "" then
@@ -304,5 +295,5 @@ end
 -- ============================================================
 --  EJECUTAR
 -- ============================================================
-print("🚀 Sistema de llaves iniciado (compatible con loadstring)")
+print("🚀 Sistema de llaves iniciado (versión corregida)")
 createKeyGui()
