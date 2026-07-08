@@ -2566,7 +2566,7 @@ local function buildGui()
 	local divGrad=Instance.new("UIGradient",divider);divGrad.Color=ColorSequence.new(ACCENT,ICE)
 	local miniBtn=Instance.new("TextButton",gui)
 	miniBtn.Size=UDim2.new(0,116,0,32);miniBtn.Position=UDim2.new(0,26,0,26);miniBtn.BackgroundColor3=PANEL;miniBtn.BorderSizePixel=0
-	miniBtn.Text="Candy Hub";miniBtn.TextColor3=W;miniBtn.Font=Enum.Font.GothamBold;miniBtn.TextSize=12;miniBtn.ZIndex=20;miniBtn.Visible=false
+	miniBtn.Text="ChiperHub";miniBtn.TextColor3=W;miniBtn.Font=Enum.Font.GothamBold;miniBtn.TextSize=12;miniBtn.ZIndex=20;miniBtn.Visible=false
 	Instance.new("UICorner",miniBtn).CornerRadius=UDim.new(0,8)
 	local miniStroke=Instance.new("UIStroke",miniBtn);miniStroke.Color=ACCENT;miniStroke.Thickness=1;miniStroke.Transparency=0.2
 	local miniDragged=false
