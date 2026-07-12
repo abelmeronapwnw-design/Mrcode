@@ -1,17 +1,11 @@
 -- ================================================================
--- SXE Auto TP + Botón (CORREGIDO - Delta compatible)
+-- SXE TP COMPLETO (Prioridad + Mayor Gen + Movimiento Real)
 -- ================================================================
-print("[SXE] Script corregido ejecutándose...")
 
--- Elimina cualquier script anterior con el mismo nombre (por si está guardado)
-pcall(function()
-    for _, scr in ipairs(game:GetService("CoreGui"):GetChildren()) do
-        if scr.Name == "SXE_TP_BUTTON" then scr:Destroy() end
-    end
-end)
+print("[SXE_TP] Iniciando script...")
 
 -- ================================================================
--- CARGA SEGURA (reemplaza la línea 1 problemática)
+-- 0. ESPERA SEGURA (sin game:IsLoaded)
 -- ================================================================
 local function waitForGame()
     if type(game.IsLoaded) == "function" then
@@ -21,6 +15,539 @@ local function waitForGame()
     end
 end
 waitForGame()
+print("[SXE_TP] Juego cargado.")
 
--- Resto del script...
--- (copia todo el script que te di en el mensaje anterior a partir de aquí)
+-- ================================================================
+-- 1. SERVICIOS Y VARIABLES GLOBALES
+-- ================================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
+local LP = Players.LocalPlayer
+
+local NetModule = nil
+local Synchronizer, AnimalsData, AnimalsShared, NumberUtils = nil, nil, nil, nil
+local modulesLoaded = false
+
+-- ================================================================
+-- 2. CARGA DE MÓDULOS (Synchronizer, Animals, Net)
+-- ================================================================
+local function loadModules()
+    if modulesLoaded then return true end
+    local ok, pkgs, datas, shared, utils
+    ok, pkgs = pcall(function() return ReplicatedStorage:FindFirstChild("Packages") end)
+    if not ok or not pkgs then
+        print("[SXE_TP] Packages no encontrado.")
+        return false
+    end
+    ok, datas = pcall(function() return ReplicatedStorage:FindFirstChild("Datas") end)
+    if not ok or not datas then
+        print("[SXE_TP] Datas no encontrado.")
+        return false
+    end
+    ok, shared = pcall(function() return ReplicatedStorage:FindFirstChild("Shared") end)
+    if not ok or not shared then
+        print("[SXE_TP] Shared no encontrado.")
+        return false
+    end
+    ok, utils = pcall(function() return ReplicatedStorage:FindFirstChild("Utils") end)
+    if not ok or not utils then
+        print("[SXE_TP] Utils no encontrado.")
+        return false
+    end
+
+    ok, Synchronizer = pcall(require, pkgs:FindFirstChild("Synchronizer"))
+    if not ok then print("[SXE_TP] Synchronizer no cargado.") end
+    ok, AnimalsData = pcall(require, datas:FindFirstChild("Animals"))
+    if not ok then print("[SXE_TP] AnimalsData no cargado.") end
+    ok, AnimalsShared = pcall(require, shared:FindFirstChild("Animals"))
+    if not ok then print("[SXE_TP] AnimalsShared no cargado.") end
+    ok, NumberUtils = pcall(require, utils:FindFirstChild("NumberUtils"))
+    if not ok then print("[SXE_TP] NumberUtils no cargado.") end
+
+    -- Net
+    local net = pkgs:FindFirstChild("Net")
+    if net then
+        ok, NetModule = pcall(require, net:FindFirstChildWhichIsA("ModuleScript", true))
+        if ok and NetModule then
+            print("[SXE_TP] Net cargado.")
+        else
+            print("[SXE_TP] Net no cargado.")
+        end
+    end
+
+    modulesLoaded = true
+    return true
+end
+
+-- ================================================================
+-- 3. FUNCIONES DE HERRAMIENTAS (carpeta, gancho, clon)
+-- ================================================================
+local CARPET_NAMES = { "Flying Carpet", "Carpet", "Cloud", "Witch's Broom", "Cupid's Wings", "Santa's Sleigh", "Magic Carpet" }
+local GRAPPLE_NAMES = { "Grapple Hook", "Grappling Hook", "Grapple", "Hook", "Web Slinger", "Grapple Gun" }
+
+local function findTool(name)
+    local char = LP.Character
+    local bp = LP:FindFirstChild("Backpack")
+    return (char and char:FindFirstChild(name)) or (bp and bp:FindFirstChild(name))
+end
+
+local function equipCarpet()
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return nil end
+    for _, n in ipairs(CARPET_NAMES) do
+        local t = findTool(n)
+        if t and t:IsA("Tool") then
+            if t.Parent ~= char then pcall(function() hum:EquipTool(t) end) end
+            return n
+        end
+    end
+    print("[SXE_TP] No se encontró carpeta voladora.")
+    return nil
+end
+
+local function fireGrapple()
+    if not NetModule then
+        print("[SXE_TP] Net no cargado, no se puede disparar gancho.")
+        return false
+    end
+    local char = LP.Character
+    if not char then return false end
+    if not char:FindFirstChild("Grapple Hook") then
+        local bp = LP:FindFirstChild("Backpack")
+        local tool = bp and bp:FindFirstChild("Grapple Hook")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if tool and hum then
+            pcall(function() hum:EquipTool(tool) end)
+            task.wait(0.1)
+        end
+    end
+    if not char:FindFirstChild("Grapple Hook") then
+        print("[SXE_TP] Gancho no encontrado.")
+        return false
+    end
+    pcall(function() NetModule:RemoteEvent("UseItem"):FireServer(2) end)
+    print("[SXE_TP] Gancho disparado.")
+    return true
+end
+
+local function doClone()
+    if not NetModule then
+        print("[SXE_TP] Net no cargado, no se puede clonar.")
+        return false
+    end
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hum then return false end
+    local cloner = (LP:FindFirstChild("Backpack") and LP.Backpack:FindFirstChild("Quantum Cloner"))
+                or char:FindFirstChild("Quantum Cloner")
+    if not cloner then
+        print("[SXE_TP] Clon cuántico no encontrado.")
+        return false
+    end
+    if cloner.Parent ~= char then
+        pcall(function() hum:EquipTool(cloner) end)
+        task.wait(0.1)
+    end
+    local ok1 = pcall(function() NetModule:RemoteEvent("UseItem"):FireServer() end)
+    task.wait(0.05)
+    local ok2 = pcall(function() NetModule:RemoteEvent("QuantumCloner/OnTeleport"):FireServer() end)
+    if ok1 and ok2 then
+        print("[SXE_TP] Clon ejecutado.")
+        return true
+    else
+        print("[SXE_TP] Falló el clon.")
+        return false
+    end
+end
+
+-- ================================================================
+-- 4. ESCANEO DE MASCOTAS (con Synchronizer si está disponible)
+-- ================================================================
+local function getPlotChannel(plotName)
+    if not Synchronizer then return nil end
+    local channel
+    pcall(function() channel = Synchronizer:Get(plotName) end)
+    if not channel then pcall(function() channel = Synchronizer:Wait(plotName) end) end
+    return channel
+end
+
+local function channelGet(channel, key)
+    if not channel then return nil end
+    local v
+    pcall(function() if type(channel.Get) == "function" then v = channel:Get(key) end end)
+    if v == nil then pcall(function() v = channel.CacheTable and channel.CacheTable[key] end) end
+    return v
+end
+
+local function isMyPlot(channel)
+    if not channel then return false end
+    local owner = channelGet(channel, "Owner")
+    if not owner then return false end
+    local result = false
+    pcall(function()
+        if typeof(owner) == "Instance" and owner:IsA("Player") then
+            result = owner.UserId == LP.UserId
+        elseif type(owner) == "table" and owner.UserId then
+            result = owner.UserId == LP.UserId
+        end
+    end)
+    return result
+end
+
+local function ownerInGame(channel)
+    if not channel then return false end
+    local owner = channelGet(channel, "Owner")
+    if not owner then return false end
+    local inGame = false
+    pcall(function()
+        if typeof(owner) == "Instance" and owner:IsA("Player") then
+            inGame = Players:FindFirstChild(owner.Name) ~= nil
+        elseif type(owner) == "number" then
+            inGame = Players:GetPlayerByUserId(owner) ~= nil
+        elseif type(owner) == "table" and owner.Name then
+            inGame = Players:FindFirstChild(tostring(owner.Name)) ~= nil
+        end
+    end)
+    return inGame
+end
+
+local function getPetPosition(plot, slot)
+    if not plot or not slot then return nil end
+    local podiums = plot:FindFirstChild("AnimalPodiums")
+    if not podiums then return nil end
+    local podium = podiums:FindFirstChild(tostring(slot))
+    if not podium then return nil end
+    for _, desc in ipairs(podium:GetDescendants()) do
+        if desc:IsA("Model") and desc.Name ~= "Claim" and desc.Name ~= "Base" and desc.Name ~= "Decorations" then
+            local hasMesh = false
+            for _, c in ipairs(desc:GetDescendants()) do
+                if c:IsA("MeshPart") then hasMesh = true; break end
+            end
+            if hasMesh then
+                local ok, cf = pcall(function() return desc:GetBoundingBox() end)
+                if ok then return cf.Position end
+            end
+        end
+    end
+    local ok, cf = pcall(function() return podium:GetPivot() end)
+    if ok then return cf.Position end
+    return podium.Position
+end
+
+local function scanPetsAdvanced()
+    local pets = {}
+    if not Synchronizer or not AnimalsData or not AnimalsShared then
+        print("[SXE_TP] Módulos no disponibles, usando escaneo simple.")
+        return nil -- Fallback al escaneo simple
+    end
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return pets end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local channel = getPlotChannel(plot.Name)
+        if not channel then continue end
+        if isMyPlot(channel) then continue end
+        if not ownerInGame(channel) then continue end
+        local animalList = channelGet(channel, "AnimalList")
+        if not animalList then continue end
+        for slot, animalData in pairs(animalList) do
+            if type(animalData) ~= "table" then continue end
+            local animalName = animalData.Index
+            if not animalName then continue end
+            local animalInfo = AnimalsData[animalName]
+            if not animalInfo then continue end
+            local mutation = animalData.Mutation or "None"
+            local genValue = 0
+            pcall(function()
+                genValue = AnimalsShared:GetGeneration(animalName, animalData.Mutation, animalData.Traits, nil)
+            end)
+            local displayName = (animalInfo and animalInfo.DisplayName) or animalName
+            local pos = getPetPosition(plot, slot)
+            if pos then
+                table.insert(pets, {
+                    name = displayName,
+                    index = animalName,
+                    mps = genValue,
+                    mutation = mutation,
+                    position = pos,
+                    plot = plot.Name,
+                    slot = tostring(slot)
+                })
+            end
+        end
+    end
+    -- Ordenar por mayor generación (mps) descendente
+    table.sort(pets, function(a, b) return (a.mps or 0) > (b.mps or 0) end)
+    print("[SXE_TP] Escaneo avanzado: " .. #pets .. " mascotas encontradas.")
+    return pets
+end
+
+-- Fallback simple (por si fallan los módulos)
+local function scanPetsSimple()
+    local pets = {}
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return pets end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local podiums = plot:FindFirstChild("AnimalPodiums")
+        if podiums then
+            for _, podium in ipairs(podiums:GetChildren()) do
+                for _, child in ipairs(podium:GetChildren()) do
+                    if child:IsA("Model") and child.Name ~= "Claim" and child.Name ~= "Base" and child.Name ~= "Decorations" then
+                        local pos = child:GetPivot().Position
+                        local name = child.Name
+                        -- Intentar obtener nombre de BillboardGui
+                        for _, bb in ipairs(child:GetDescendants()) do
+                            if bb:IsA("BillboardGui") then
+                                for _, lbl in ipairs(bb:GetDescendants()) do
+                                    if lbl:IsA("TextLabel") and lbl.Text and lbl.Text ~= "" then
+                                        local txt = lbl.Text:match("^%s*(.-)%s*$")
+                                        if #txt > 1 and not txt:match("^%$") then
+                                            name = txt
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                        table.insert(pets, { name = name, position = pos, model = child })
+                    end
+                end
+            end
+        end
+    end
+    -- Ordenar por cercanía (fallback)
+    return pets
+end
+
+-- ================================================================
+-- 5. COORDENADAS DE CIELO (UPPER / LOWER) para segunda/tercera planta
+-- ================================================================
+local UPPER = {
+    B = {{coord=Vector3.new(-487.921448,16.850713,-75.768013),facing="NORTH"},{coord=Vector3.new(-332.379730,16.850722,-75.762100),facing="NORTH"},{coord=Vector3.new(-487.134918,16.850713,-18.094154),facing="SOUTH"},{coord=Vector3.new(-316.300171,16.850713,-17.845898),facing="SOUTH"}},
+    C = {{coord=Vector3.new(-330.765381,16.850713,31.424425),facing="NORTH"},{coord=Vector3.new(-502.989349,16.850713,31.172430),facing="NORTH"},{coord=Vector3.new(-489.077087,16.850713,89.010147),facing="SOUTH"},{coord=Vector3.new(-330.908936,16.850713,88.930145),facing="SOUTH"}},
+    D = {{coord=Vector3.new(-331.264893,16.850713,138.209167),facing="NORTH"},{coord=Vector3.new(-487.935181,16.850713,138.026321),facing="NORTH"},{coord=Vector3.new(-487.774933,16.850713,195.882538),facing="SOUTH"},{coord=Vector3.new(-330.799133,16.850575,196.022354),facing="SOUTH"}},
+}
+local LOWER = {
+    B = {{coord=Vector3.new(-335.725586,-3.048217,-74.984589),facing="NORTH"},{coord=Vector3.new(-503.214233,-3.048217,-75.043137),facing="NORTH"},{coord=Vector3.new(-483.619385,-3.718430,-18.844337),facing="SOUTH"},{coord=Vector3.new(-316.147095,-3.048218,-18.818844),facing="SOUTH"}},
+    C = {{coord=Vector3.new(-335.985413,-3.048218,32.051426),facing="NORTH"},{coord=Vector3.new(-503.277008,-3.048217,31.956175),facing="NORTH"},{coord=Vector3.new(-483.749390,-3.048218,88.147003),facing="SOUTH"},{coord=Vector3.new(-315.793823,-3.048217,88.163979),facing="SOUTH"}},
+    D = {{coord=Vector3.new(-335.476654,-3.048218,139.001083),facing="NORTH"},{coord=Vector3.new(-503.710083,-3.048218,138.989883),facing="NORTH"},{coord=Vector3.new(-315.654938,-3.048218,195.302444),facing="SOUTH"},{coord=Vector3.new(-483.859253,-3.048218,195.269043),facing="SOUTH"}},
+}
+
+local function getClosestBaseIdx(pos)
+    local bases = {
+        Vector3.new(-476.52,-2,220.94), Vector3.new(-476.52,-2,113.77),
+        Vector3.new(-476.52,-2,6.18),   Vector3.new(-476.52,-2,-101.07),
+        Vector3.new(-342.66,-2,221.45), Vector3.new(-342.66,-2,113.41),
+        Vector3.new(-342.66,-2,6.25),   Vector3.new(-342.66,-2,-99.73),
+    }
+    local closest, dist = 1, math.huge
+    for i, b in ipairs(bases) do
+        local d = (pos.X - b.X)^2 + (pos.Z - b.Z)^2
+        if d < dist then dist = d; closest = i end
+    end
+    return closest
+end
+
+local function buildFrontCandidate(idx, isUpper, playerZ)
+    local base = isUpper and {
+        Vector3.new(-479.51,18,220.94), Vector3.new(-479.51,18,113.77),
+        Vector3.new(-479.51,18,6.18),   Vector3.new(-479.51,18,-101.07),
+        Vector3.new(-339.48,18,221.45), Vector3.new(-339.48,18,113.41),
+        Vector3.new(-339.48,18,6.25),   Vector3.new(-339.48,18,-99.73),
+    }[idx] or {
+        Vector3.new(-476.52,-2,220.94), Vector3.new(-476.52,-2,113.77),
+        Vector3.new(-476.52,-2,6.18),   Vector3.new(-476.52,-2,-101.07),
+        Vector3.new(-342.66,-2,221.45), Vector3.new(-342.66,-2,113.41),
+        Vector3.new(-342.66,-2,6.25),   Vector3.new(-342.66,-2,-99.73),
+    }[idx]
+    local frontY = isUpper and 16.850713 or -3.048217
+    local frontZ = math.clamp(playerZ - base.Z, -18, 18) + base.Z
+    local coord = Vector3.new(base.X, frontY, frontZ)
+    local faceDir = (idx <= 4) and Vector3.new(-1,0,0) or Vector3.new(1,0,0)
+    return coord, faceDir
+end
+
+local function plotSides(coordTable, idx)
+    local bases = {
+        Vector3.new(-476.52,-2,220.94), Vector3.new(-476.52,-2,113.77),
+        Vector3.new(-476.52,-2,6.18),   Vector3.new(-476.52,-2,-101.07),
+        Vector3.new(-342.66,-2,221.45), Vector3.new(-342.66,-2,113.41),
+        Vector3.new(-342.66,-2,6.25),   Vector3.new(-342.66,-2,-99.73),
+    }
+    local base = bases[idx]
+    local isWest = idx <= 4
+    local out = {}
+    for _, coords in pairs(coordTable) do
+        for _, data in ipairs(coords) do
+            if ((data.coord.X < -410) == isWest) and math.abs(data.coord.Z - base.Z) < 45 then
+                out[#out + 1] = data
+            end
+        end
+    end
+    return out
+end
+
+local function findClosest(petPos, coordTable)
+    local best, bestDist = nil, math.huge
+    for skyKey, coords in pairs(coordTable) do
+        for _, data in ipairs(coords) do
+            local d = (petPos - data.coord).Magnitude
+            if d < bestDist then bestDist = d; best = data end
+        end
+    end
+    return best
+end
+
+-- ================================================================
+-- 6. FUNCIÓN PRINCIPAL DE TP (con movimiento real)
+-- ================================================================
+local function doFullTP()
+    print("[SXE_TP] Iniciando TP completo...")
+
+    -- Cargar módulos si no lo están
+    if not modulesLoaded then
+        loadModules()
+    end
+
+    local char = LP.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then
+        print("[SXE_TP] Personaje no listo.")
+        return
+    end
+
+    -- 1. ESCANEAR MASCOTAS (avanzado o simple)
+    local pets = scanPetsAdvanced()
+    if not pets or #pets == 0 then
+        print("[SXE_TP] Falló escaneo avanzado, usando simple.")
+        pets = scanPetsSimple()
+    end
+
+    if not pets or #pets == 0 then
+        print("[SXE_TP] No se encontraron mascotas. TP cancelado.")
+        return
+    end
+
+    -- Elegir la de mayor generación (ya ordenada por mps)
+    local target = pets[1]
+    -- También podríamos elegir por prioridad si quieres, pero como dijiste híbrido, prioridad primero, si no, mayor gen.
+    -- En este script, como usamos orden por mps, ya es mayor gen.
+    -- Si quieres prioridad, podemos agregar una función que filtre por priorityList.
+    -- Por ahora, elige la de mayor mps.
+    local targetPos = target.position
+    print("[SXE_TP] Objetivo: " .. target.name .. " (Gen: " .. tostring(target.mps or 0) .. ") en " .. tostring(targetPos))
+
+    -- 2. MOVIMIENTO
+
+    -- Equipar carpeta
+    equipCarpet()
+
+    -- Volar hacia el objetivo (primera aproximación)
+    local function flyTo(pos, speed)
+        speed = speed or 160
+        local startTime = os.clock()
+        while hrp.Parent and (os.clock() - startTime) < 6 do
+            local diff = pos - hrp.Position
+            local flatDist = Vector3.new(diff.X, 0, diff.Z).Magnitude
+            if flatDist < 5 then break end
+            hrp.AssemblyLinearVelocity = diff.Unit * speed
+            RunService.Heartbeat:Wait()
+        end
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+
+    print("[SXE_TP] Volando hacia objetivo...")
+    flyTo(targetPos, 160)
+
+    -- Si está en segunda/tercera planta (Y > 8.9), usamos el clon
+    local isUpper = targetPos.Y > 8.9
+
+    if isUpper then
+        print("[SXE_TP] Objetivo en piso superior, usando clon.")
+        -- Buscar punto de cielo adecuado
+        local coordTable = UPPER
+        local skyPoint = findClosest(targetPos, coordTable)
+        if skyPoint then
+            local destPos = skyPoint.coord
+            local facingDir = skyPoint.facing == "NORTH" and Vector3.new(0,0,-1) or Vector3.new(0,0,1)
+
+            -- Volar al punto de cielo
+            print("[SXE_TP] Volando al punto de cielo...")
+            flyTo(destPos, 160)
+
+            -- Disparar gancho
+            print("[SXE_TP] Disparando gancho...")
+            fireGrapple()
+            task.wait(0.3)
+
+            -- Ejecutar clon
+            print("[SXE_TP] Ejecutando clon...")
+            local cloneOk = doClone()
+            if cloneOk then
+                print("[SXE_TP] Clon exitoso.")
+                task.wait(0.5)
+                -- Volar al objetivo final
+                flyTo(targetPos, 160)
+                hrp.CFrame = CFrame.new(targetPos)
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                print("[SXE_TP] TP completado (piso superior).")
+            else
+                print("[SXE_TP] Falló el clon. TP incompleto.")
+            end
+        else
+            print("[SXE_TP] No se encontró punto de cielo. TP incompleto.")
+        end
+    else
+        -- Primera planta: solo volar
+        print("[SXE_TP] Objetivo en primera planta, volando directo.")
+        flyTo(targetPos, 160)
+        hrp.CFrame = CFrame.new(targetPos)
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        print("[SXE_TP] TP completado (primera planta).")
+    end
+end
+
+-- ================================================================
+-- 7. BOTÓN FLOTANTE Y TECLA 'T'
+-- ================================================================
+local function createButton()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "SXE_TP_Button"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = game:GetService("CoreGui")
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 70, 0, 70)
+    btn.Position = UDim2.new(1, -90, 0.5, -35)
+    btn.BackgroundColor3 = Color3.fromRGB(232, 111, 177)
+    btn.Text = "TP"
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 18
+    btn.BorderSizePixel = 0
+    btn.Parent = screenGui
+
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(1, 0)
+
+    btn.MouseButton1Click:Connect(function()
+        task.spawn(doFullTP)
+    end)
+
+    print("[SXE_TP] Botón TP creado.")
+end
+
+createButton()
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        task.spawn(doFullTP)
+    end
+end)
+
+print("[SXE_TP] Script listo. Presiona 'T' o toca el botón rosa para TP completo.")
