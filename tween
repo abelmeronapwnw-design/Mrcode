@@ -1,62 +1,83 @@
 -- ================================================================
--- SXE Auto TP + Botón Flotante (Compatibilidad Total con Delta)
+-- SXE Auto TP + Botón Móvil (Corregido para Delta)
 -- ================================================================
 
--- 1. Espera de carga universal (CORREGIDO)
+print("[SXE] Iniciando script...")
+
+-- ================================================================
+-- 1. CARGA SEGURA (compatible con Delta)
+-- ================================================================
 local function waitForGame()
     if type(game.IsLoaded) == "function" then
         while not game:IsLoaded() do task.wait() end
-    elseif type(game.Loaded) == "boolean" then
-        while not game.Loaded do task.wait() end
     else
-        task.wait(1) -- tiempo prudente
+        -- Si no existe IsLoaded, esperamos 1 segundo (juego ya cargado)
+        task.wait(1)
     end
 end
 waitForGame()
+print("[SXE] Juego cargado correctamente.")
 
--- 2. Servicios y variables globales
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local UIS = game:GetService("UserInputService")
-local LP = Players.LocalPlayer
-local CoreGui = game:GetService("CoreGui") -- Para el botón
+-- ================================================================
+-- 2. VERIFICACIÓN DE FUNCIONES DISPONIBLES (depuración)
+-- ================================================================
+local function checkFunctions()
+    local available = {}
+    local missing = {}
+    local testFuncs = {
+        "hookfunction", "getupvalue", "newcclosure", "fireproximityprompt",
+        "firesignal", "sethiddenproperty", "getfenv", "setfpscap"
+    }
+    for _, f in ipairs(testFuncs) do
+        if type(_G[f]) == "function" or type(rawget(_G, f)) == "function" then
+            available[#available + 1] = f
+        else
+            missing[#missing + 1] = f
+        end
+    end
+    print("[SXE] Funciones disponibles: " .. table.concat(available, ", "))
+    if #missing > 0 then
+        print("[SXE] Funciones NO disponibles (pueden causar errores): " .. table.concat(missing, ", "))
+    end
+end
+checkFunctions()
 
--- 3. Configuración (ajústala a tu gusto)
+-- ================================================================
+-- 3. CONFIGURACIÓN (ajusta a tu gusto)
+-- ================================================================
 local CONFIG = {
-    Tool = "Flying Carpet",          -- Herramienta de vuelo
+    Tool = "Flying Carpet",
     FlyTPSpeed = 160,
     FlyTPCloseSpeed = 75,
     GrabbleTPSpeed = 400,
     WalkTPSpeed = 190,
     CloneDelay = 0.35,
     MinGenForTP = "0",
-    StealMode = "Priority",          -- "Priority", "Highest", "Nearest"
+    StealMode = "Priority",  -- "Priority", "Highest", "Nearest"
     AutoSteal = true,
     PriorityList = {
-        "Headless Horseman",
-        "Strawberry Elephant",
-        "Meowl",
-        "Skibidi Toilet",
-        -- Añade más nombres aquí
+        "Headless Horseman", "Strawberry Elephant", "Meowl", "Skibidi Toilet",
+        "Love Love Bear", "John Pork", "Antonio", "Griffin"
+        -- Añade más si quieres
     }
 }
 
--- 4. Carga de módulos (con comprobación)
+-- ================================================================
+-- 4. CARGA DE MÓDULOS DEL JUEGO
+-- ================================================================
 local Synchronizer, AnimalsData, AnimalsShared, NumberUtils, NetModule
 
 local function loadModules()
     local ok, pkgs, datas, shared, utils
-    ok, pkgs = pcall(function() return ReplicatedStorage:WaitForChild("Packages", 5) end)
+    ok, pkgs = pcall(function() return game:GetService("ReplicatedStorage"):WaitForChild("Packages", 5) end)
     if not ok then return false end
-    ok, datas = pcall(function() return ReplicatedStorage:WaitForChild("Datas", 5) end)
+    ok, datas = pcall(function() return game:GetService("ReplicatedStorage"):WaitForChild("Datas", 5) end)
     if not ok then return false end
-    ok, shared = pcall(function() return ReplicatedStorage:WaitForChild("Shared", 5) end)
+    ok, shared = pcall(function() return game:GetService("ReplicatedStorage"):WaitForChild("Shared", 5) end)
     if not ok then return false end
-    ok, utils = pcall(function() return ReplicatedStorage:WaitForChild("Utils", 5) end)
+    ok, utils = pcall(function() return game:GetService("ReplicatedStorage"):WaitForChild("Utils", 5) end)
     if not ok then return false end
-    
+
     ok, Synchronizer = pcall(require, pkgs:FindFirstChild("Synchronizer"))
     if not ok then return false end
     ok, AnimalsData = pcall(require, datas:FindFirstChild("Animals"))
@@ -66,7 +87,6 @@ local function loadModules()
     ok, NumberUtils = pcall(require, utils:FindFirstChild("NumberUtils"))
     if not ok then return false end
 
-    -- Net
     ok, NetModule = pcall(function()
         local net = pkgs:FindFirstChild("Net")
         return net and require(net:FindFirstChildWhichIsA("ModuleScript", true))
@@ -74,7 +94,31 @@ local function loadModules()
     return true
 end
 
--- 5. Funciones auxiliares (herramientas)
+local function ensureModules()
+    local attempts = 0
+    while not loadModules() and attempts < 10 do
+        print("[SXE] Esperando módulos... (" .. attempts + 1 .. ")")
+        task.wait(0.5)
+        attempts = attempts + 1
+    end
+    if loadModules() then
+        print("[SXE] Módulos cargados correctamente.")
+    else
+        print("[SXE] ERROR: No se pudieron cargar los módulos. El TP puede no funcionar.")
+    end
+end
+ensureModules()
+
+-- ================================================================
+-- 5. FUNCIONES AUXILIARES (herramientas, rutas, movimiento)
+-- ================================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+local LP = Players.LocalPlayer
+
 local CARPET_NAMES = { "Flying Carpet", "Carpet", "Cloud", "Witch's Broom", "Cupid's Wings", "Santa's Sleigh", "Magic Carpet" }
 local GRAPPLE_NAMES = { "Grapple Hook", "Grappling Hook", "Grapple", "Hook", "Web Slinger", "Grapple Gun" }
 
@@ -135,7 +179,9 @@ local function doClone()
     return ok1 and ok2
 end
 
--- 6. Escaneo de mascotas (simplificado pero funcional)
+-- ================================================================
+-- 6. ESCANEO DE MASCOTAS
+-- ================================================================
 local function getPlotChannel(plotName)
     if not Synchronizer then return nil end
     local channel
@@ -162,6 +208,8 @@ local function isMyPlot(channel)
             result = owner.UserId == LP.UserId
         elseif type(owner) == "table" and owner.UserId then
             result = owner.UserId == LP.UserId
+        elseif typeof(owner) == "Instance" then
+            result = owner == LP
         end
     end)
     return result
@@ -177,6 +225,8 @@ local function ownerInGame(channel)
             inGame = Players:FindFirstChild(owner.Name) ~= nil
         elseif type(owner) == "number" then
             inGame = Players:GetPlayerByUserId(owner) ~= nil
+        elseif type(owner) == "table" and owner.Name then
+            inGame = Players:FindFirstChild(tostring(owner.Name)) ~= nil
         end
     end)
     return inGame
@@ -260,7 +310,9 @@ local function scanAllPets()
     return pets
 end
 
--- 7. Movimiento (velMoveThrough, computeRoute)
+-- ================================================================
+-- 7. MOVIMIENTO (velMoveThrough, computeRoute, etc.)
+-- ================================================================
 local PathfindingService = game:GetService("PathfindingService")
 
 local function _blocks(inst)
@@ -395,7 +447,9 @@ local function velMoveThrough(hrp, waypoints, speed, allowJump)
     if hrp and hrp.Parent then hrp.AssemblyLinearVelocity = Vector3.zero end
 end
 
--- 8. Sky coordinates (para clon)
+-- ================================================================
+-- 8. SKY COORDINATES (para clon en segunda planta)
+-- ================================================================
 local UPPER = {
     B = {{coord=Vector3.new(-487.921448,16.850713,-75.768013),facing="NORTH"},{coord=Vector3.new(-332.379730,16.850722,-75.762100),facing="NORTH"},{coord=Vector3.new(-487.134918,16.850713,-18.094154),facing="SOUTH"},{coord=Vector3.new(-316.300171,16.850713,-17.845898),facing="SOUTH"}},
     C = {{coord=Vector3.new(-330.765381,16.850713,31.424425),facing="NORTH"},{coord=Vector3.new(-502.989349,16.850713,31.172430),facing="NORTH"},{coord=Vector3.new(-489.077087,16.850713,89.010147),facing="SOUTH"},{coord=Vector3.new(-330.908936,16.850713,88.930145),facing="SOUTH"}},
@@ -472,22 +526,27 @@ local function findClosest(petPos, coordTable)
     return best
 end
 
--- 9. Función principal de teleport
+-- ================================================================
+-- 9. FUNCIÓN PRINCIPAL DE TELEPORT
+-- ================================================================
 local function doVelocityTP()
+    print("[SXE] Iniciando teleport...")
     local char = LP.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then
-        print("[AutoTP] Personaje no listo")
+        print("[SXE] ERROR: Personaje no listo.")
         return
     end
 
+    -- Escanear mascotas
     local allPets = scanAllPets()
     if #allPets == 0 then
-        print("[AutoTP] No se encontraron mascotas")
+        print("[SXE] No se encontraron mascotas.")
         return
     end
 
+    -- Seleccionar según modo
     local pet
     if CONFIG.StealMode == "Nearest" then
         local bestDist = math.huge
@@ -507,17 +566,23 @@ local function doVelocityTP()
     end
 
     if not pet then
-        print("[AutoTP] No se pudo seleccionar una mascota")
+        print("[SXE] No se pudo seleccionar una mascota.")
         return
     end
 
     local petPos = pet.position
-    print("[AutoTP] Teleportando a " .. pet.name .. " (gen: " .. tostring(pet.mps) .. ")")
+    local petName = pet.name
+    print("[SXE] Teleportando a " .. petName .. " (gen: " .. tostring(pet.mps) .. ")")
 
+    -- Velocidades
+    local tpSpeed = CONFIG.GrabbleTPSpeed
+    local cloneDelay = CONFIG.CloneDelay
+
+    -- Determinar si es primera o segunda planta
     local isUpper = petPos.Y > 8.9
 
     if not isUpper then
-        -- Primera planta
+        -- Primera planta: vuelo directo
         equipCarpet()
         local toPos = Vector3.new(petPos.X, -4, petPos.Z)
         local idx = getClosestBaseIdx(petPos)
@@ -528,14 +593,17 @@ local function doVelocityTP()
         end
         hrp.CFrame = CFrame.new(toPos, toPos + faceDir)
         hrp.AssemblyLinearVelocity = Vector3.zero
-        task.wait(0.5)
+        print("[SXE] Teleport completado (primera planta).")
         return
     end
 
-    -- Segunda planta: clon
+    -- Segunda planta: usar clon
     local coordTable = UPPER
     local skyPoint = findClosest(petPos, coordTable)
-    if not skyPoint then return end
+    if not skyPoint then
+        print("[SXE] No se encontró punto de cielo.")
+        return
+    end
 
     local destPos = skyPoint.coord
     local facingDir = skyPoint.facing == "NORTH" and Vector3.new(0,0,-1) or Vector3.new(0,0,1)
@@ -562,10 +630,10 @@ local function doVelocityTP()
     fireGrapple()
     task.wait(0.3)
 
-    task.wait(CONFIG.CloneDelay)
+    task.wait(cloneDelay)
     local cloneOk = doClone()
     if cloneOk then
-        print("[AutoTP] Clon exitoso")
+        print("[SXE] Clon exitoso, moviendo a la mascota.")
         equipCarpet()
         local targetPos = Vector3.new(petPos.X, petPos.Y - 4, petPos.Z)
         local route2 = computeRoute(hrp.Position, targetPos)
@@ -573,103 +641,89 @@ local function doVelocityTP()
             velMoveThrough(hrp, route2, CONFIG.WalkTPSpeed, true)
         end
         hrp.CFrame = CFrame.new(targetPos)
+        print("[SXE] Teleport completado (segunda planta).")
     else
-        print("[AutoTP] Falló el clon")
+        print("[SXE] Falló el clon.")
     end
 end
 
--- 10. Botón flotante para móviles
-local function createFloatingButton()
+-- ================================================================
+-- 10. BOTÓN FLOTANTE PARA MÓVIL (y PC)
+-- ================================================================
+local function createMobileButton()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "AutoTPButton"
+    screenGui.Name = "SXE_TP_BUTTON"
     screenGui.ResetOnSpawn = false
-    screenGui.Parent = CoreGui
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = game:GetService("CoreGui")
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 70, 0, 70)
-    button.Position = UDim2.new(1, -85, 1, -95) -- esquina inferior derecha
-    button.BackgroundColor3 = Color3.fromRGB(232, 111, 177) -- rosa SXE
+    button.Size = UDim2.new(0, 60, 0, 60)
+    button.Position = UDim2.new(1, -80, 0.5, -30)
+    button.BackgroundColor3 = Color3.fromRGB(232, 111, 177) -- color rosa SXE
     button.Text = "TP"
-    button.TextColor3 = Color3.new(1,1,1)
+    button.TextColor3 = Color3.new(1, 1, 1)
     button.Font = Enum.Font.GothamBold
-    button.TextSize = 18
+    button.TextSize = 20
     button.BorderSizePixel = 0
     button.Parent = screenGui
 
-    -- Redondear
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
+    corner.CornerRadius = UDim.new(1, 0) -- circular
     corner.Parent = button
 
-    -- Sombra / stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255,255,255)
-    stroke.Thickness = 1.5
-    stroke.Transparency = 0.3
-    stroke.Parent = button
+    -- Sombra
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0.5, -10, 0.5, -10)
+    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.new(0, 0, 0)
+    shadow.ImageTransparency = 0.7
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+    shadow.ZIndex = -1
+    shadow.Parent = button
 
     button.MouseButton1Click:Connect(function()
         task.spawn(doVelocityTP)
     end)
 
-    -- También arrastrable (opcional)
-    local dragging = false
-    local dragStart, startPos
+    -- También se puede arrastrar (opcional)
+    local dragging, dragStart, startPos
     button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = button.Position
         end
     end)
     button.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
             local delta = input.Position - dragStart
-            button.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
--- 11. Inicialización
-local function init()
-    -- Cargar módulos
-    if not loadModules() then
-        print("[AutoTP] Error al cargar módulos. Reintentando...")
-        task.wait(1)
-        if not loadModules() then
-            warn("[AutoTP] No se pudieron cargar los módulos. El script puede no funcionar.")
-        end
-    end
-
-    -- Esperar personaje
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        -- ya listo
-    else
-        LP.CharacterAdded:Wait()
-        LP.Character:WaitForChild("HumanoidRootPart", 10)
-    end
-
-    -- Crear botón
-    pcall(createFloatingButton)
-
-    -- Asignar tecla T (opcional)
-    UIS.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.T then
-            task.spawn(doVelocityTP)
+            button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 
-    print("[AutoTP] Sistema listo. Presiona 'T' o toca el botón rosa.")
+    print("[SXE] Botón TP creado en la esquina derecha.")
 end
 
--- Ejecutar
-task.spawn(init)
+createMobileButton()
+
+-- ================================================================
+-- 11. TECLA 'T' PARA PC (opcional)
+-- ================================================================
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.T then
+        task.spawn(doVelocityTP)
+    end
+end)
+
+print("[SXE] Script cargado correctamente. Presiona 'T' o toca el botón rosa para TP.")
